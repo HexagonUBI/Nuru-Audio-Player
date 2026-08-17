@@ -3,6 +3,7 @@ Nuru - is an app that can play multiple chosen ambient audio (whatever user want
 
 ### Features:
 | Feature | Description | Implementation |
+| --- | --- | --- |
 | Main Interface | Basic app design | None |
 | Audio seamless looping | Proper seamless loop of an audio | None |
 | Nook Mode | Opens in a fullscreen, dynamic cozy nook room design that changes based on sounds enabled | None |
