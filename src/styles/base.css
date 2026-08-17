@@ -1,0 +1,160 @@
+@import './fonts.css';
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  outline: none;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--app-bg);
+  color: var(--ink);
+  font: var(--t-body);
+  /* Nuru is a Windows app first; let the platform do the hinting. */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  cursor: default;
+  overscroll-behavior: none;
+}
+
+/* Nothing in a desktop app should be zoomable or selectable by accident. */
+img,
+svg {
+  display: block;
+  -webkit-user-drag: none;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+  font: var(--t-body);
+  color: inherit;
+}
+
+button {
+  font: var(--t-label);
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: default;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: inherit;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+/* ── Focus ────────────────────────────────────────────────────────────────────
+   No rings. Anywhere. A hard outline floating around a control is the single
+   most obvious tell that a desktop app is a web page in a window, and Nuru
+   should not read that way.
+
+   Keyboard focus is still shown — each control lights up the same way it does on
+   hover, defined alongside its hover rule. That keeps the app navigable without
+   a pixel of chrome that looks bolted on. */
+*,
+*::before,
+*::after {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Chromium paints its own ring on some controls through the UA sheet, which the
+   rule above does not always reach. */
+:focus,
+:focus-visible,
+:focus-within {
+  outline: none !important;
+}
+
+/* ── Scrollbars ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: var(--r-pill);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  transition: background-color var(--dur-2) var(--ease-out);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-thumb-hover);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ── Shared primitives ────────────────────────────────────────────────────────
+   Small enough to live globally; anything larger belongs to a component. */
+
+.u-caps {
+  font: var(--t-caption);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--ink-40);
+}
+
+.u-numeric {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Interactive surfaces share one press behaviour so the whole app feels like
+   one object. Scale is tiny on purpose — 0.97 reads as a press, 0.9 as a bug. */
+.u-pressable {
+  transition:
+    transform var(--dur-3) var(--ease-spring),
+    background-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    opacity var(--dur-2) var(--ease-out);
+}
+.u-pressable:active:not(:disabled):not([aria-disabled='true']) {
+  transform: scale(0.97);
+  transition-duration: var(--dur-1);
+}
+.u-pressable:disabled,
+.u-pressable[aria-disabled='true'] {
+  opacity: 0.32;
+}
+
+/* Regions of the window that drag it, and holes punched in them for controls. */
+.u-drag {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+.u-nodrag {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}

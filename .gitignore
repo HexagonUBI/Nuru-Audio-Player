@@ -1,1 +1,34 @@
+# Private development notes and references.
+# Nothing in here is licensed to ship — see dev-notes/elpy-reference/ANALYSIS.md.
 /dev-notes
+
+# The Elpy-derived placeholder pack. It IS bundled into local builds so there is
+# something to test against, but it is not ours to publish, so the audio and art
+# never get committed. Regenerate with `npm run pack:placeholder`.
+# The folder itself stays tracked — Tauri fails the build if a declared resource
+# directory is missing.
+/resources/packs/elpy-placeholder/*
+!/resources/packs/elpy-placeholder/README.md
+
+# Frontend
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/target-test/
+src-tauri/gen/
+
+# Build output
+/release/
+
+# Editors & OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store

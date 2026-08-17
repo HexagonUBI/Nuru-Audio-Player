@@ -1,0 +1,5 @@
+{
+  "$comment": "Single source of truth for Nuru's version. Four parts by design: MAJOR.MINOR.PATCH.BUILD. Run `npm run version:sync` after editing to propagate into package.json, Cargo.toml, tauri.conf.json and src/lib/version.ts.",
+  "version": "0.0.0.0",
+  "channel": "dev"
+}

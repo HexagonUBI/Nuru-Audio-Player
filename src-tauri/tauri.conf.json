@@ -1,0 +1,81 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Nuru",
+  "version": "0.0.0",
+  "identifier": "app.nuru.player",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:5183",
+    "beforeBuildCommand": "npm run build",
+    "beforeBundleCommand": "node scripts/patch-version-resource.mjs",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Nuru",
+        "width": 1180,
+        "height": 720,
+        "minWidth": 940,
+        "minHeight": 600,
+        "resizable": true,
+        "center": true,
+        "decorations": false,
+        "transparent": false,
+        "shadow": true,
+        "backgroundColor": "#131417",
+        "visible": false,
+        "dragDropEnabled": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$APPDATA/packs/**",
+          "$RESOURCE/packs/**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "msi",
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../resources/packs/builtin": "packs/builtin",
+      "../resources/packs/elpy-placeholder": "packs/elpy-placeholder"
+    },
+    "publisher": "SimpleFox",
+    "copyright": "© 2026 SimpleFox",
+    "category": "Music",
+    "shortDescription": "Ambient sound mixer",
+    "longDescription": "Nuru plays any combination of ambient sounds together, each seamlessly looped and mixed locally. Save the mixes you like, set a sleep timer, and drop into a full-screen nook that changes with what you are listening to.",
+    "windows": {
+      "wix": {
+        "version": "0.0.0.0",
+        "language": [
+          "en-US"
+        ]
+      },
+      "nsis": {
+        "installMode": "both",
+        "languages": [
+          "English"
+        ],
+        "displayLanguageSelector": false
+      }
+    }
+  },
+  "plugins": {}
+}

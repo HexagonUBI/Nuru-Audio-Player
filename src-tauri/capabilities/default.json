@@ -1,0 +1,27 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Everything the Nuru window is allowed to ask the backend for.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-is-fullscreen",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-close",
+    "core:app:allow-version",
+    "opener:default",
+    "store:default",
+    "dialog:allow-open",
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [{ "path": "$APPDATA/packs/**" }, { "path": "$RESOURCE/packs/**" }]
+    }
+  ]
+}

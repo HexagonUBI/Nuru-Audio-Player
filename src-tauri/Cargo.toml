@@ -1,0 +1,97 @@
+[package]
+name = "nuru"
+version = "0.0.0"
+description = "Play any combination of ambient sounds, seamlessly looped."
+authors = ["SimpleFox"]
+edition = "2021"
+rust-version = "1.77"
+default-run = "nuru"
+
+[lib]
+name = "nuru_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# Windows VERSIONINFO, which is what the Properties dialog on nuru.exe shows.
+# Cargo's `version` above has to be three-part semver, so the four-part string
+# lives here — but tauri-build writes its own resource over the top of this, so
+# these values are a record of intent rather than the thing that takes effect.
+# scripts/patch-version-resource.mjs restamps the exe after linking and before
+# bundling, and that is what actually lands. Kept in step by sync-version.mjs.
+[package.metadata.winresource]
+FileVersion = "0.0.0.0"
+ProductVersion = "0.0.0.0"
+ProductName = "Nuru"
+CompanyName = "SimpleFox"
+FileDescription = "Nuru - ambient sound mixer"
+LegalCopyright = "Copyright (c) 2026 SimpleFox"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# protocol-asset backs the `asset:` URLs cover images are loaded through; it has
+# to be enabled here as well as in tauri.conf.json or the build script rejects
+# the mismatch.
+tauri = { version = "2", features = ["tray-icon", "image-png", "protocol-asset"] }
+tauri-plugin-opener = "2"
+tauri-plugin-store = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# ── Audio ────────────────────────────────────────────────────────────────────
+# cpal   — the output device and its real-time callback.
+# symphonia — pure-Rust decoding. FLAC and WAV are what Nuru plays; the lossy
+#             codecs are enabled only so users can *import* their own files,
+#             which are then transcoded to FLAC before they are ever looped.
+# rubato — sinc resampling when the file rate and the device rate differ.
+#          Nearest-neighbour or linear resampling would put audible artefacts on
+#          top of a bed that is meant to disappear.
+# rtrb   — lock-free SPSC ring buffers. Nothing in the audio callback may
+#          allocate, lock, or block, so decoding happens on its own thread and
+#          reaches the callback through one of these.
+cpal = "0.15"
+symphonia = { version = "0.5", default-features = false, features = [
+    "flac",
+    "wav",
+    "pcm",
+    "ogg",
+    "vorbis",
+    "isomp4",
+    "aac",
+    "mp3",
+] }
+rubato = "0.15"
+rtrb = "0.3"
+
+parking_lot = "0.12"
+crossbeam-channel = "0.5"
+anyhow = "1"
+thiserror = "2"
+sha2 = "0.10"
+hex = "0.4"
+log = "0.4"
+tauri-plugin-log = "2"
+
+[features]
+# Tauri's own default; kept explicit so `cargo build --no-default-features`
+# doesn't silently drop the custom protocol.
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.dev]
+# Decoding and resampling are unusably slow in a debug build; optimise the
+# dependency graph while leaving our own crate debuggable.
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
