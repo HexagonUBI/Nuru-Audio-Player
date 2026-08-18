@@ -283,7 +283,12 @@ pub fn install_update(app: tauri::AppHandle) {
         emit(Progress::step("installing", "Installing", 0.9));
         log::info!("running installer {}", path.display());
 
-        if let Err(e) = crate::updater::install(&path) {
+        let resources = handle
+            .path()
+            .resource_dir()
+            .unwrap_or_else(|_| std::path::PathBuf::from("."));
+
+        if let Err(e) = crate::updater::install(&resources, &path) {
             return fail(&handle, e);
         }
 
@@ -297,6 +302,15 @@ pub fn install_update(app: tauri::AppHandle) {
 pub async fn release_notes(app: tauri::AppHandle, version: String) -> Option<crate::updater::ReleaseInfo> {
     let dir = app.path().app_data_dir().ok()?;
     crate::updater::notes_for(&dir, &version).await
+}
+
+#[tauri::command]
+pub async fn latest_changelog(app: tauri::AppHandle) -> Option<crate::updater::ReleaseInfo> {
+    let dir = app.path().app_data_dir().ok()?;
+    match crate::updater::notes_for(&dir, crate::version::FULL).await {
+        Some(release) => Some(release),
+        None => crate::updater::newest_known(&dir),
+    }
 }
 
 #[tauri::command]

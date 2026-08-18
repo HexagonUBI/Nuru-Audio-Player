@@ -7,6 +7,14 @@ edition = "2021"
 rust-version = "1.77"
 default-run = "nuru"
 
+[[bin]]
+name = "nuru"
+path = "src/main.rs"
+
+[[bin]]
+name = "nuru-restart"
+path = "src/bin/nuru-restart.rs"
+
 [lib]
 name = "nuru_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
@@ -18,8 +26,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 # scripts/patch-version-resource.mjs restamps the exe after linking and before
 # bundling, and that is what actually lands. Kept in step by sync-version.mjs.
 [package.metadata.winresource]
-FileVersion = "0.0.0.5"
-ProductVersion = "0.0.0.5"
+FileVersion = "0.0.0.7"
+ProductVersion = "0.0.0.7"
 ProductName = "Nuru"
 CompanyName = "SimpleFox"
 FileDescription = "Nuru - ambient sound mixer"
@@ -78,6 +86,7 @@ discord-rich-presence = "1.1.0"
 futures-util = "0.3.34"
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
 url = "2.5.8"
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
 
 [features]
 # Tauri's own default; kept explicit so `cargo build --no-default-features`

@@ -18,14 +18,11 @@
 
   const layers = $derived.by(() => {
     const art = cover ? `url("${cover}")` : 'none';
-    const scrim = 'linear-gradient(to top, rgba(4, 5, 7, 0.7) 0%, rgba(4, 5, 7, 0) 52%)';
     if (active) {
       const tint = `linear-gradient(${sound.accent}e0, ${sound.accent}e0)`;
-      return {
-        image: `${scrim}, ${tint}, ${art}`,
-        blend: 'normal, screen, normal',
-      };
+      return { image: `${tint}, ${art}`, blend: 'screen, normal' };
     }
+    const scrim = 'linear-gradient(to top, rgba(4, 5, 7, 0.7) 0%, rgba(4, 5, 7, 0) 52%)';
     const dim = 'linear-gradient(rgba(7, 8, 10, 0.66), rgba(7, 8, 10, 0.66))';
     return { image: `${scrim}, ${dim}, ${art}`, blend: 'normal, normal, normal' };
   });
@@ -60,7 +57,7 @@
     justify-content: flex-end;
     text-align: left;
     overflow: hidden;
-    background-size: cover, cover, cover;
+    background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     box-shadow: var(--e-2);

@@ -150,6 +150,7 @@ pub fn run() {
             commands::set_output_device,
             commands::check_update,
             commands::release_notes,
+            commands::latest_changelog,
             commands::pending_changelog,
             commands::mark_changelog_seen,
             commands::get_auto_update,

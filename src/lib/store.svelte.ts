@@ -276,6 +276,7 @@ class NuruStore {
   updateBusy = $state(false);
   autoUpdate = $state(true);
   changelog = $state<ReleaseInfo | null>(null);
+  changelogBusy = $state(false);
 
   async loadAutoUpdate() {
     this.autoUpdate = await api.getAutoUpdate();
@@ -294,6 +295,24 @@ class NuruStore {
   private async showChangelogIfNew() {
     const release = await api.pendingChangelog();
     if (release) this.changelog = release;
+  }
+
+  async openChangelog() {
+    if (this.changelogBusy) return;
+    this.changelogBusy = true;
+    try {
+      const release = await api.latestChangelog();
+      if (release) {
+        this.activePanel = 'none';
+        this.changelog = release;
+      } else {
+        this.toast('No release notes to show yet');
+      }
+    } catch {
+      this.toast('Could not load the release notes', 'error');
+    } finally {
+      this.changelogBusy = false;
+    }
   }
 
   async checkUpdate(quiet = true) {

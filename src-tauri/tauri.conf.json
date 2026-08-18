@@ -7,7 +7,7 @@
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:5183",
     "beforeBuildCommand": "npm run build",
-    "beforeBundleCommand": "node scripts/patch-version-resource.mjs",
+    "beforeBundleCommand": "node scripts/patch-version-resource.mjs && node scripts/stage-helper.mjs",
     "frontendDist": "../dist"
   },
   "app": {
@@ -53,7 +53,8 @@
     ],
     "resources": {
       "../resources/packs/builtin": "packs/builtin",
-      "../resources/packs/elpy-placeholder": "packs/elpy-placeholder"
+      "../resources/packs/elpy-placeholder": "packs/elpy-placeholder",
+      "../resources/nuru-restart.exe": "nuru-restart.exe"
     },
     "publisher": "SimpleFox",
     "copyright": "(c) 2026 SimpleFox",

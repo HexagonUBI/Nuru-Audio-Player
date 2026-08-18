@@ -13,6 +13,11 @@
     { id: 'slate', name: 'Slate', swatch: ['#15161c', '#7dd3fc'] },
   ];
 
+  const LINKS = [
+    { name: 'Website', url: 'https://hexagonubi.github.io/Nuru-Audio-Player/', icon: 'globe', solid: false },
+    { name: 'GitHub', url: 'https://github.com/HexagonUBI/Nuru-Audio-Player', icon: 'github', solid: true },
+  ] as const;
+
   const SIZES = [
     { id: 'compact', name: 'Compact', preview: 14 },
     { id: 'small', name: 'Small', preview: 18 },
@@ -149,6 +154,15 @@
       </div>
     {/if}
 
+    <button
+      class="u-pressable whats-new"
+      disabled={nuru.changelogBusy}
+      onclick={() => nuru.openChangelog()}
+    >
+      <Icon name="notes" size={14} />
+      <span>{nuru.changelogBusy ? 'Loading...' : "What's new"}</span>
+    </button>
+
     <label class="toggle auto">
       <input
         type="checkbox"
@@ -166,14 +180,16 @@
   <section>
     <h3>Links</h3>
     <div class="links">
-      <button class="u-pressable link" onclick={() => openUrl('https://hexagonubi.github.io/Nuru-Audio-Player/')}>
-        <span class="lname">Website</span>
-        <span class="lsub">Downloads and news</span>
-      </button>
-      <button class="u-pressable link" onclick={() => openUrl('https://github.com/HexagonUBI/Nuru-Audio-Player')}>
-        <span class="lname">GitHub</span>
-        <span class="lsub">Source and releases</span>
-      </button>
+      {#each LINKS as l (l.url)}
+        <button
+          class="u-pressable link"
+          onclick={() => openUrl(l.url)}
+          aria-label={l.name}
+          title={l.name}
+        >
+          <Icon name={l.icon} size={17} fill={l.solid} />
+        </button>
+      {/each}
     </div>
   </section>
 
@@ -368,6 +384,27 @@
     background: rgba(255, 255, 255, 0.1);
   }
 
+  .whats-new {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+    margin-top: var(--sp-2);
+    padding: 9px;
+    border-radius: var(--r-sm);
+    font: var(--t-label);
+    color: var(--ink-60);
+    background: rgba(255, 255, 255, 0.04);
+    box-shadow: inset 0 0 0 1px var(--line-soft);
+  }
+  .whats-new:hover:not(:disabled),
+  .whats-new:focus-visible:not(:disabled) {
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+  }
+
   .toggle.auto {
     margin-top: var(--sp-4);
   }
@@ -382,34 +419,25 @@
   }
 
   .links {
-    display: grid;
+    display: flex;
     gap: var(--sp-2);
   }
 
   .link {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    padding: 11px 14px;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
     border-radius: var(--r-md);
-    text-align: left;
+    color: var(--ink-60);
     background: rgba(255, 255, 255, 0.04);
     box-shadow: inset 0 0 0 1px var(--line-soft);
   }
   .link:hover,
   .link:focus-visible {
+    color: var(--ink);
     background: rgba(255, 255, 255, 0.08);
     box-shadow: inset 0 0 0 1px var(--line-strong);
-  }
-
-  .lname {
-    font: var(--t-label);
-    color: var(--ink);
-  }
-
-  .lsub {
-    font: var(--t-caption);
-    color: var(--ink-40);
   }
 
   .toggle {

@@ -318,6 +318,13 @@ pub async fn notes_for(app_data: &Path, version: &str) -> Option<ReleaseInfo> {
     None
 }
 
+pub fn newest_known(app_data: &Path) -> Option<ReleaseInfo> {
+    read_state(app_data)
+        .releases
+        .into_iter()
+        .max_by(|a, b| compare_versions(&a.version, &b.version))
+}
+
 fn download_dir() -> PathBuf {
     std::env::temp_dir().join("nuru-update")
 }
@@ -394,10 +401,7 @@ where
     Ok(target)
 }
 
-pub fn install(path: &Path) -> Result<(), UpdateError> {
-    let mut cmd = std::process::Command::new(path);
-    cmd.arg("/S").arg("/R").arg("/UPDATE");
-
+fn spawn_detached(cmd: &mut std::process::Command) -> std::io::Result<std::process::Child> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -405,11 +409,55 @@ pub fn install(path: &Path) -> Result<(), UpdateError> {
         const DETACHED_PROCESS: u32 = 0x0000_0008;
         cmd.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
     }
+    cmd.spawn()
+}
 
-    match cmd.spawn() {
+fn stage_helper(resource_dir: &Path) -> Option<PathBuf> {
+    let source = resource_dir.join("nuru-restart.exe");
+    if !source.is_file() {
+        log::warn!("restart window not found at {}", source.display());
+        return None;
+    }
+    let dir = download_dir();
+    std::fs::create_dir_all(&dir).ok()?;
+    let target = dir.join("nuru-restart.exe");
+    match std::fs::copy(&source, &target) {
+        Ok(_) => Some(target),
+        Err(e) => {
+            log::warn!("could not stage the restart window: {e}");
+            None
+        }
+    }
+}
+
+pub fn install(resource_dir: &Path, installer: &Path) -> Result<(), UpdateError> {
+    let exe = std::env::current_exe().unwrap_or_default();
+
+    if let Some(helper) = stage_helper(resource_dir) {
+        let mut cmd = std::process::Command::new(&helper);
+        cmd.arg("--installer")
+            .arg(installer)
+            .arg("--exe")
+            .arg(&exe)
+            .arg("--pid")
+            .arg(std::process::id().to_string());
+
+        match spawn_detached(&mut cmd) {
+            Ok(_) => {
+                log::info!("restart window started from {}", helper.display());
+                return Ok(());
+            }
+            Err(e) => log::warn!("restart window would not start: {e}"),
+        }
+    }
+
+    log::info!("falling back to the installer handling the restart");
+    let mut cmd = std::process::Command::new(installer);
+    cmd.arg("/S").arg("/R").arg("/UPDATE");
+    match spawn_detached(&mut cmd) {
         Ok(_) => Ok(()),
         Err(e) => {
-            log::error!("could not start {}: {e}", path.display());
+            log::error!("could not start {}: {e}", installer.display());
             Err(UpdateError::LaunchFailed)
         }
     }

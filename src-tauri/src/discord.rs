@@ -1,10 +1,12 @@
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crossbeam_channel::{bounded, Sender};
-use discord_rich_presence::activity::{Activity, ActivityType, Assets, Timestamps};
+use discord_rich_presence::activity::{Activity, ActivityType, Assets, Button, Timestamps};
 use discord_rich_presence::{DiscordIpc, DiscordIpcClient};
 
 pub const APP_ID: &str = "1539058341353889883";
+
+pub const WEBSITE: &str = "https://hexagonubi.github.io/Nuru-Audio-Player/";
 
 const MIN_INTERVAL: Duration = Duration::from_secs(15);
 const RECONNECT_INTERVAL: Duration = Duration::from_secs(30);
@@ -67,7 +69,8 @@ impl Presence {
                             .activity_type(ActivityType::Listening)
                             .details(&wanted.details)
                             .state(&wanted.state)
-                            .assets(Assets::new().large_image("nuru").large_text("Nuru"));
+                            .assets(Assets::new().large_image("nuru").large_text("Nuru"))
+                            .buttons(vec![Button::new("Get Nuru", WEBSITE)]);
                         if let Some(start) = wanted.started_at {
                             activity = activity.timestamps(Timestamps::new().start(start));
                         }

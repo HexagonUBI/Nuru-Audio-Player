@@ -35,3 +35,4 @@ desktop.ini
 
 # Local test builds kept side by side for update testing.
 /release/
+/resources/nuru-restart.exe

@@ -1,6 +1,7 @@
 
 
 import type { EngineStatus, SoundEntry, Catalogue } from './types';
+import { VERSION } from './version';
 
 
 export interface Progress {
@@ -71,6 +72,27 @@ const previewState = {
   active: new Set<string>(),
   loaded: null as SoundEntry[] | null,
 };
+
+function previewRelease(): ReleaseInfo {
+  const notes = [
+    '## Preview build',
+    '',
+    'The browser harness has no updater, so this is stand-in copy.',
+    '',
+    '- Lists render like this',
+    '- **Bold** and *italic* both work',
+  ].join('\n');
+  return {
+    version: VERSION,
+    tagName: VERSION,
+    title: 'Browser preview',
+    notes,
+    publishedIso: null,
+    htmlUrl: 'https://github.com/HexagonUBI/Nuru-Audio-Player',
+    downloadUrl: null,
+    downloadSizeBytes: null,
+  };
+}
 
 async function previewSounds(): Promise<SoundEntry[]> {
   if (previewState.loaded) return previewState.loaded;
@@ -243,6 +265,11 @@ export const api = {
   async markChangelogSeen(): Promise<void> {
     if (IS_PREVIEW) return;
     return invoke('mark_changelog_seen');
+  },
+
+  async latestChangelog(): Promise<ReleaseInfo | null> {
+    if (IS_PREVIEW) return previewRelease();
+    return invoke<ReleaseInfo | null>('latest_changelog');
   },
 
   async releaseNotes(version: string): Promise<ReleaseInfo | null> {
