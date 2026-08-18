@@ -21,11 +21,18 @@ carrying `data-i18n`. English is the default; the switch in the header stores
 the choice and it is remembered after that. Browser language is deliberately not
 sniffed. It loads before `demo.js` and exposes `window.NuruI18n`.
 
+The Ukrainian button reads UA because that is what people recognise, but the
+code and the `lang` attribute stay `uk`. `uk` is the ISO 639-1 language code;
+`ua` is the country code and is not a valid language tag.
+
 `demo.js` is everything interactive:
 
-- the hero screenshot, `shots/mixer.png`, which leans back and straightens as it
-  scrolls. That is the real window rather than a rebuild of it, so it cannot
-  drift out of date in the ways a hand-built mockup does. Recapture it with
+- nothing, for the hero. `shots/mixer.png` is placed at its own pixel size and
+  left alone: no transform, no scaling, so on a 1x display it renders one image
+  pixel per screen pixel and the app's own text stays legible. That is why the
+  hero stacks rather than sitting beside the copy, and why the shot escapes the
+  1440px content column through `.shot-wrap`. It shrinks below about 1580px of
+  viewport and is 85 percent of native at 1366. Recapture it with
   `scripts/capture-shots.ps1` when the interface changes.
 - the loop panel, the one place that uses the Web Audio API, because the whole
   point of it is an audible A/B. It plays a tone whose buffer either is or is not

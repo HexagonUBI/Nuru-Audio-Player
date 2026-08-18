@@ -506,18 +506,6 @@
     paintReadout();
   });
 
-  var shot = document.getElementById('hero-shot');
-  if (shot && !reduced) {
-    var onLean = function () {
-      var rect = shot.getBoundingClientRect();
-      var travelled = Math.min(1, Math.max(0, 1 - rect.top / window.innerHeight));
-      shot.style.setProperty('--lean', String(1 - travelled));
-    };
-    window.addEventListener('scroll', onLean, { passive: true });
-    window.addEventListener('resize', onLean);
-    onLean();
-  }
-
   var hdr = document.getElementById('hdr');
   if (hdr) {
     var onScroll = function () {
