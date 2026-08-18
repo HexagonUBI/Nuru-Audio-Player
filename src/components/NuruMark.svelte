@@ -1,16 +1,4 @@
 <script lang="ts">
-  /**
-   * The Nuru mark.
-   *
-   * Nuru is Swahili for "light". The mark is a light source with two arcs rising
-   * off it — read as a lamp glow, a sunrise over a horizon, or sound radiating,
-   * all of which are the app. It survives being shrunk: at tray size the outer
-   * arc drops out and the dot plus one arc still reads.
-   *
-   * Placeholder identity, designed to be replaced. It is built from primitives
-   * rather than drawn so it can be recoloured per theme and animated (the arcs
-   * pulse while audio is playing) without exporting new assets.
-   */
   let {
     size = 20,
     pulse = false,
@@ -71,8 +59,6 @@
       transform var(--dur-4) var(--ease-out);
   }
 
-  /* While something is playing the arcs breathe outward, slowly enough to read
-     as ambience rather than a loading spinner. */
   .pulse .arc-1 {
     animation: breathe 3.4s var(--ease-in-out) infinite;
   }

@@ -7,37 +7,23 @@
   import Fader from './Fader.svelte';
   import Icon from './Icon.svelte';
 
-  /**
-   * Nook Mode — a full-screen room that reacts to what is playing.
-   *
-   * Built entirely from gradients and a particle canvas, deliberately: it is a
-   * *structure* for real artwork, not a substitute for it. Every visual is
-   * driven by `nuru.scene`, which resolves one winning state per channel, so
-   * dropping in painted layers later means replacing the paint, not rewiring the
-   * logic. Adding a sound changes the room within one cross-dissolve.
-   */
-
-  // Palettes per sky state: [zenith, horizon, ground haze]
   const SKY: Record<string, [string, string, string]> = {
     night: ['#080a14', '#131a2e', '#1b2136'],
     morning: ['#1a2436', '#4a5a6b', '#6b6553'],
-    default: ['#0d1016', '#171c26', '#1e232c'],
+    dusk: ['#0d1016', '#171c26', '#1e232c'],
   };
 
-  // Palettes per window state: [far, mid, near silhouette]
   const VIEW: Record<string, [string, string, string]> = {
     forest: ['#16281c', '#0f1f16', '#07110c'],
     city: ['#141c26', '#0d141d', '#070b10'],
     beach: ['#13303b', '#0d2531', '#071820'],
-    default: ['#151a20', '#0f1319', '#080a0d'],
+    hills: ['#151a20', '#0f1319', '#080a0d'],
   };
 
-  const sky = $derived(SKY[nuru.scene.sky ?? ''] ?? SKY.default);
-  const view = $derived(VIEW[nuru.scene.window ?? ''] ?? VIEW.default);
-  const weather = $derived(nuru.scene.weather ?? 'clear');
-  const hearth = $derived(nuru.scene.hearth ?? null);
+  const scene = $derived(nuru.scene);
+  const sky = $derived(SKY[scene.sky] ?? SKY.dusk);
+  const view = $derived(VIEW[scene.window] ?? VIEW.hills);
 
-  /** Overall accent of the room — the strongest playing layer's colour. */
   const roomAccent = $derived.by(() => {
     let best: { c: string; w: number } | null = null;
     for (const l of nuru.layers) {
@@ -48,14 +34,10 @@
     return best?.c ?? 'var(--nuru)';
   });
 
-  /* ── Particles ─────────────────────────────────────────────────────────────
-     Rain and snow are a canvas rather than DOM nodes: a few hundred elements
-     animating at once is exactly the kind of thing that turns a calm app into a
-     fan-spinner, and the brief asks for the opposite. */
-
   let canvas = $state<HTMLCanvasElement | null>(null);
 
   interface Particle {
+    kind: 'rain' | 'snow';
     x: number;
     y: number;
     vy: number;
@@ -66,8 +48,9 @@
 
   $effect(() => {
     const el = canvas;
-    // Read reactive inputs here so the effect re-runs when the weather changes.
-    const kind = weather;
+    const rain = scene.rain;
+    const snow = scene.snow;
+    const wind = scene.wind;
     if (!el) return;
 
     const ctx = el.getContext('2d');
@@ -85,38 +68,44 @@
       el.height = Math.floor(el.clientHeight * dpr);
     }
 
-    function seed() {
-      if (!el) return;
-      const density =
-        kind === 'downpour' ? 420 : kind === 'rain' ? 210 : kind === 'storm' ? 340 : kind === 'snow' ? 180 : 0;
-      particles = Array.from({ length: density }, () => spawn(true));
-    }
-
-    function spawn(anywhere: boolean): Particle {
+    function spawn(kind: 'rain' | 'snow', anywhere: boolean): Particle {
       const h = el ? el.height : 0;
       const w = el ? el.width : 0;
-      const snow = kind === 'snow';
+      const isSnow = kind === 'snow';
+      const drive = 1 + wind * 1.4;
       return {
-        x: Math.random() * w,
+        kind,
+        x: Math.random() * w * 1.3 - w * 0.15,
         y: anywhere ? Math.random() * h : -20 * dpr,
-        vy: (snow ? 0.35 + Math.random() * 0.5 : 7 + Math.random() * 6) * dpr,
-        vx: (snow ? (Math.random() - 0.5) * 0.6 : -0.9 - Math.random() * 0.5) * dpr,
-        len: (snow ? 1.6 + Math.random() * 1.8 : 9 + Math.random() * 13) * dpr,
-        a: snow ? 0.35 + Math.random() * 0.45 : 0.1 + Math.random() * 0.22,
+        vy: (isSnow ? (0.35 + Math.random() * 0.5) * (1 + wind * 0.5) : (7 + Math.random() * 6) * drive) * dpr,
+        vx: (isSnow ? (Math.random() - 0.5) * 0.6 - wind * 2.2 : -0.9 - Math.random() * 0.5 - wind * 4.5) * dpr,
+        len: (isSnow ? 1.6 + Math.random() * 1.8 : (9 + Math.random() * 13) * (1 + wind * 0.5)) * dpr,
+        a: isSnow ? 0.35 + Math.random() * 0.45 : 0.1 + Math.random() * 0.22,
       };
+    }
+
+    function seed() {
+      if (!el) return;
+      const rainCount = Math.round(Math.min(rain, 1.6) * 260);
+      const snowCount = Math.round(Math.min(snow, 1.6) * 150);
+      particles = [
+        ...Array.from({ length: rainCount }, () => spawn('rain', true)),
+        ...Array.from({ length: snowCount }, () => spawn('snow', true)),
+      ];
     }
 
     function frame() {
       if (!el || !ctx) return;
       ctx.clearRect(0, 0, el.width, el.height);
-      const snow = kind === 'snow';
 
       for (const p of particles) {
         p.x += p.vx;
         p.y += p.vy;
-        if (p.y > el.height + 20 * dpr || p.x < -20 * dpr) Object.assign(p, spawn(false));
+        if (p.y > el.height + 20 * dpr || p.x < -60 * dpr || p.x > el.width + 60 * dpr) {
+          Object.assign(p, spawn(p.kind, false));
+        }
 
-        if (snow) {
+        if (p.kind === 'snow') {
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.len, 0, Math.PI * 2);
           ctx.fillStyle = `rgba(233,240,255,${p.a})`;
@@ -150,6 +139,23 @@
     };
   });
 
+  const cityLights = $derived.by(() => {
+    if (scene.window !== 'city') return [];
+    const rows = 7;
+    const cols = 26;
+    const out: Array<{ x: number; y: number; on: number }> = [];
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r < rows; r++) {
+        const seed = Math.sin(c * 12.9898 + r * 78.233) * 43758.5453;
+        const rnd = seed - Math.floor(seed);
+        if (rnd > 0.55) {
+          out.push({ x: (c / cols) * 100, y: (r / rows) * 100, on: 0.3 + rnd * 0.7 });
+        }
+      }
+    }
+    return out;
+  });
+
   async function exit() {
     nuru.nookMode = false;
     await win.setFullscreen(false);
@@ -175,38 +181,46 @@
   style:--view-1={view[1]}
   style:--view-2={view[2]}
   style:--room={roomAccent}
+  style:--wet={Math.min(1, scene.rain)}
+  style:--gale={Math.min(1, scene.wind)}
+  style:--fire={Math.min(1, scene.hearth)}
   transition:fade={{ duration: 320 }}
 >
   <div class="sky"></div>
 
-  <!-- The view through the window. Three bands of silhouette give parallax
-       depth without any artwork; real layers slot in here. -->
   <div class="outside">
     <div class="band far"></div>
     <div class="band mid"></div>
+    {#if scene.window === 'city'}
+      <div class="lights" aria-hidden="true">
+        {#each cityLights as l, i (i)}
+          <span style:left="{l.x}%" style:top="{l.y}%" style:opacity={l.on}></span>
+        {/each}
+      </div>
+    {/if}
     <div class="band near"></div>
   </div>
 
-  {#if weather === 'storm'}
-    <div class="lightning"></div>
+  {#if scene.storm > 0.05}
+    <div class="lightning" style:--rate="{Math.max(3, 12 - scene.storm * 8)}s"></div>
   {/if}
 
   <canvas bind:this={canvas} class="weather"></canvas>
 
-  <!-- Window frame and interior, drawn over the view. -->
+  <div class="haze" aria-hidden="true"></div>
+
   <div class="frame">
     <span class="mullion v"></span>
     <span class="mullion h"></span>
   </div>
   <div class="sill"></div>
 
-  {#if hearth}
-    <div class="hearth" class:campfire={hearth === 'campfire'}></div>
+  {#if scene.hearth > 0.02}
+    <div class="hearth" class:campfire={scene.hearthKind === 'campfire'}></div>
   {/if}
 
   <div class="vignette"></div>
 
-  <!-- Controls fade away until the pointer comes near them. -->
   <div class="controls" transition:fly={{ y: 20, duration: 320, easing: cubicOut }}>
     <button
       class="u-pressable round"
@@ -240,7 +254,7 @@
       {/if}
     </div>
 
-    <button class="u-pressable round" onclick={exit} aria-label="Leave nook mode" title="Esc">
+    <button class="u-pressable round" onclick={exit} aria-label="Leave cozy mode" title="Esc">
       <Icon name="collapse" size={17} />
     </button>
   </div>
@@ -262,27 +276,20 @@
   .sill,
   .hearth,
   .vignette,
-  .lightning {
+  .lightning,
+  .haze {
     position: absolute;
     inset: 0;
     pointer-events: none;
   }
 
-  /* Every scene layer cross-dissolves on the same clock, so a sound switching on
-     changes the whole room as one move rather than as a stack of separate
-     transitions arriving at different times. */
   .sky,
   .band {
     transition: background var(--dur-scene) var(--ease-in-out);
   }
 
   .sky {
-    background: linear-gradient(
-      180deg,
-      var(--sky-0) 0%,
-      var(--sky-1) 52%,
-      var(--sky-2) 100%
-    );
+    background: linear-gradient(180deg, var(--sky-0) 0%, var(--sky-1) 52%, var(--sky-2) 100%);
   }
 
   .band {
@@ -307,15 +314,55 @@
     background: var(--view-2);
   }
 
+  .lights {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 18%;
+    height: 26%;
+    pointer-events: none;
+  }
+  .lights span {
+    position: absolute;
+    width: 2px;
+    height: 3px;
+    background: #ffd79a;
+    box-shadow: 0 0 6px 1px rgba(255, 200, 120, 0.5);
+    filter: blur(calc(var(--wet) * 1.6px));
+    animation: blink 7s var(--ease-in-out) infinite;
+  }
+  .lights span:nth-child(3n) {
+    animation-delay: 2.4s;
+  }
+  .lights span:nth-child(5n) {
+    animation-delay: 4.1s;
+  }
+  @keyframes blink {
+    0%,
+    92%,
+    100% {
+      opacity: inherit;
+    }
+    94% {
+      opacity: 0.15;
+    }
+  }
+
   .weather {
     width: 100%;
     height: 100%;
   }
 
+  .haze {
+    background: linear-gradient(180deg, rgba(150, 170, 200, 0.14), rgba(120, 140, 170, 0.05));
+    opacity: calc(var(--wet) * 0.85);
+    transition: opacity var(--dur-scene) var(--ease-in-out);
+  }
+
   .lightning {
     background: rgba(215, 228, 255, 0.9);
     opacity: 0;
-    animation: flash 9s steps(1, end) infinite;
+    animation: flash var(--rate, 9s) steps(1, end) infinite;
     mix-blend-mode: screen;
   }
   @keyframes flash {
@@ -338,8 +385,6 @@
     }
   }
 
-  /* The room is implied by a frame in front of the view rather than modelled —
-     enough to place the viewer indoors. */
   .frame {
     box-shadow: inset 0 0 0 min(6vw, 76px) rgba(9, 10, 13, 0.94);
   }
@@ -368,7 +413,6 @@
     background: linear-gradient(180deg, rgba(9, 10, 13, 0) 0%, rgba(6, 7, 9, 0.96) 62%);
   }
 
-  /* Firelight from below and to one side, breathing. */
   .hearth {
     background: radial-gradient(
       120% 60% at 22% 108%,
@@ -376,6 +420,7 @@
       transparent 62%
     );
     mix-blend-mode: screen;
+    opacity: var(--fire);
     animation: flicker 5.5s var(--ease-in-out) infinite;
   }
   .hearth.campfire {
@@ -388,16 +433,16 @@
   @keyframes flicker {
     0%,
     100% {
-      opacity: 0.62;
+      filter: brightness(0.9);
     }
     28% {
-      opacity: 0.86;
+      filter: brightness(1.2);
     }
     54% {
-      opacity: 0.54;
+      filter: brightness(0.8);
     }
     76% {
-      opacity: 0.78;
+      filter: brightness(1.1);
     }
   }
 
@@ -419,8 +464,6 @@
     border-radius: var(--r-2xl);
     background: rgba(12, 13, 16, 0.62);
     backdrop-filter: blur(20px) saturate(1.2);
-    outline: 1px solid rgba(255, 255, 255, 0.08);
-    outline-offset: -1px;
     box-shadow: var(--e-4);
     opacity: 0.28;
     transition: opacity var(--dur-4) var(--ease-out);
@@ -481,7 +524,8 @@
 
   @media (prefers-reduced-motion: reduce) {
     .lightning,
-    .hearth {
+    .hearth,
+    .lights span {
       animation: none;
     }
   }

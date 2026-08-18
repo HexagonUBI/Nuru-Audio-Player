@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nuru</title>
+    <meta
+      name="description"
+      content="Play any combination of ambient sounds at once, each seamlessly looped and mixed locally on your machine."
+    />
+    <meta property="og:title" content="Nuru" />
+    <meta
+      property="og:description"
+      content="Play any combination of ambient sounds at once, each seamlessly looped and mixed locally."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="assets/icon.png" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="glow" aria-hidden="true"></div>
+
+    <header>
+      <a class="brand" href="./">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="g" x1="6" y1="10" x2="18" y2="20" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#ffc978" />
+              <stop offset="1" stop-color="#ffb454" />
+            </linearGradient>
+          </defs>
+          <circle cx="12" cy="15.5" r="3.4" fill="url(#g)" />
+          <path d="M5.6 15.5a6.4 6.4 0 0 1 12.8 0" stroke="#ffb454" stroke-width="1.9" stroke-linecap="round" opacity=".72" />
+          <path d="M1.6 15.5a10.4 10.4 0 0 1 20.8 0" stroke="#ffb454" stroke-width="1.7" stroke-linecap="round" opacity=".34" />
+        </svg>
+        <span>Nuru</span>
+      </a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#download">Download</a>
+        <a class="ext" href="https://github.com/SimpleFox/Nuru-Audio-Player">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>Every sound you want,<br />all at once.</h1>
+        <p class="lede">
+          Rain over a cafe over a distant train. Nuru mixes as many ambient sounds as you
+          like, each one seamlessly looped and played from your own machine.
+        </p>
+        <div class="cta">
+          <a class="button primary" id="download-primary" href="#download">
+            <span class="label">Download for Windows</span>
+            <span class="meta" id="download-meta">latest release</span>
+          </a>
+          <a class="button ghost" href="#features">What it does</a>
+        </div>
+        <p class="note" id="release-note"></p>
+      </section>
+
+      <section id="features" class="features">
+        <article>
+          <h2>Loops without seams</h2>
+          <p>
+            Most ambient players seek back near the end of a file and hope you do not
+            notice. Nuru wraps at an exact sample and blends the join, so a loop never
+            clicks and never hiccups.
+          </p>
+        </article>
+        <article>
+          <h2>Nothing streams</h2>
+          <p>
+            Every sound is a local file, checked before it plays. Once a pack is on your
+            machine, a dropped connection cannot become a gap in the audio.
+          </p>
+        </article>
+        <article>
+          <h2>Mix and save</h2>
+          <p>
+            Layer as many soundscapes as you want, set each one's volume, and keep the
+            combination as a named mix to come back to.
+          </p>
+        </article>
+        <article>
+          <h2>Cozy Mode</h2>
+          <p>
+            A full screen room that reacts to what you are playing. Add rain and it
+            rains. Add wind and it drives. Add snow to the rain and you get both.
+          </p>
+        </article>
+        <article>
+          <h2>Sleep timer</h2>
+          <p>
+            Fade everything out after a set time, so falling asleep to it does not mean
+            waking up to it.
+          </p>
+        </article>
+        <article>
+          <h2>Light on your machine</h2>
+          <p>
+            Audio is decoded as it plays rather than held in memory, so a five minute bed
+            and a five hour one cost the same.
+          </p>
+        </article>
+      </section>
+
+      <section id="download" class="download">
+        <h2>Download</h2>
+        <p class="lede">Windows 10 and 11, 64 bit.</p>
+        <div class="files" id="files">
+          <a class="file" href="https://github.com/SimpleFox/Nuru-Audio-Player/releases/latest">
+            <span class="kind">Installer</span>
+            <span class="name">Nuru MSI</span>
+            <span class="hint">Recommended</span>
+          </a>
+          <a class="file" href="https://github.com/SimpleFox/Nuru-Audio-Player/releases/latest">
+            <span class="kind">Installer</span>
+            <span class="name">Nuru Setup</span>
+            <span class="hint">NSIS alternative</span>
+          </a>
+        </div>
+        <p class="note">
+          Nuru is in early development. Builds are unsigned, so Windows may warn you
+          before running the installer.
+        </p>
+      </section>
+
+      <section class="soon">
+        <h2>Coming later</h2>
+        <p>
+          A sound database, so anyone can share soundscapes and install them straight
+          into Nuru.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <span>Nuru</span>
+      <a href="https://github.com/SimpleFox/Nuru-Audio-Player">Source</a>
+      <a href="https://github.com/SimpleFox/Nuru-Audio-Player/releases">Releases</a>
+    </footer>
+
+    <script src="release.js"></script>
+  </body>
+</html>

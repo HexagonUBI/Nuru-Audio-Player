@@ -1,6 +1,3 @@
-/* Comfortaa ships with the app so it renders identically on machines that don't
-   have it installed. Segoe UI is assumed present on Windows; the fallbacks below
-   only matter when previewing Nuru in a plain browser during development. */
 
 @font-face {
   font-family: 'Comfortaa';
@@ -11,13 +8,9 @@
 }
 
 :root {
-  /* Comfortaa: brand, headings, tile labels, big numerals. Rounded and warm —
-     it carries the "cozy" half of the identity. */
   --font-display: 'Comfortaa', 'Segoe UI', system-ui, sans-serif;
 
-  /* Segoe UI: every piece of running UI text. Native, dense, familiar. */
   --font-ui: 'Segoe UI', 'Segoe UI Variable Text', system-ui, -apple-system, sans-serif;
 
-  /* Tabular figures for timers and volume readouts so digits don't jitter. */
   --font-numeric: 'Segoe UI', system-ui, sans-serif;
 }

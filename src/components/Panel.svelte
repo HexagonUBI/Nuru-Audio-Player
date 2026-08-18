@@ -68,8 +68,6 @@
     border-radius: var(--r-lg);
     background: var(--s-700);
     box-shadow: var(--e-4);
-    /* A one-pixel top highlight — the standard trick for making a dark panel
-       look lit from above rather than pasted on. */
     outline: 1px solid var(--line);
     outline-offset: -1px;
     overflow: hidden;

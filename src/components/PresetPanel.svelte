@@ -16,7 +16,6 @@
     name = '';
   }
 
-  /** Up to four accent dots per preset — enough to recognise a mix at a glance. */
   function swatches(ids: string[]) {
     return ids
       .slice(0, 4)
@@ -160,8 +159,6 @@
     flex: 0 0 auto;
   }
 
-  /* Overlapped dots read as one object — a chip for the mix — rather than four
-     unrelated marks. */
   .dot {
     width: 11px;
     height: 11px;

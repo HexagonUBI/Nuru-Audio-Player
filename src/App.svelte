@@ -7,6 +7,7 @@
   import PresetPanel from './components/PresetPanel.svelte';
   import SettingsPanel from './components/SettingsPanel.svelte';
   import NookMode from './components/NookMode.svelte';
+  import LoadingScreen from './components/LoadingScreen.svelte';
   import Toasts from './components/Toasts.svelte';
 
   $effect(() => {
@@ -60,6 +61,7 @@
 {/if}
 
 <Toasts />
+<LoadingScreen />
 
 <style>
   .app {

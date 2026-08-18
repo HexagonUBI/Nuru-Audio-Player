@@ -1,20 +1,47 @@
-//! The surface the UI talks to. Thin on purpose — these translate, they don't
-//! decide.
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
-use tauri::{Manager, State};
+use parking_lot::RwLock;
+use serde::Serialize;
+use tauri::{Emitter, Manager, State};
 
-use crate::audio::{AudioEngine, MAX_LAYERS};
+use crate::audio::{output_devices, AudioEngine, MAX_LAYERS};
 use crate::library::Library;
 use crate::model::{EngineStatus, SoundEntry};
+use crate::settings::SettingsStore;
+
+pub const BOOT_EVENT: &str = "nuru://boot";
 
 pub struct AppState {
-    pub engine: AudioEngine,
-    /// Shared so the startup verification pass can hold it on its own thread.
-    pub library: std::sync::Arc<Library>,
+    pub engine: RwLock<AudioEngine>,
+    pub library: Arc<Library>,
+    pub settings: Arc<SettingsStore>,
+    pub booted: AtomicBool,
+    pub presence: crate::discord::Presence,
 }
 
-/// Anyhow errors don't cross the IPC boundary; flatten them to a string that is
-/// safe to show a user, keeping the full chain.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Progress {
+    pub phase: String,
+    pub label: String,
+    pub progress: f32,
+    pub done: bool,
+    pub error: Option<String>,
+}
+
+impl Progress {
+    fn step(phase: &str, label: impl Into<String>, progress: f32) -> Self {
+        Self {
+            phase: phase.into(),
+            label: label.into(),
+            progress,
+            done: false,
+            error: None,
+        }
+    }
+}
+
 fn err(e: anyhow::Error) -> String {
     format!("{e:#}")
 }
@@ -30,17 +57,61 @@ pub fn rescan_packs(app: tauri::AppHandle, state: State<'_, AppState>) -> Result
     state.library.scan(&roots).map_err(err)
 }
 
-/// Load a sound into the mixer. Fails if its file is missing or fails its hash —
-/// nothing plays that has not been verified on this machine first.
 #[tauri::command]
-pub fn play_sound(
-    state: State<'_, AppState>,
-    sound_id: String,
-    volume: f32,
-) -> Result<(), String> {
+pub fn boot(app: tauri::AppHandle, state: State<'_, AppState>) {
+    if state.booted.swap(true, Ordering::SeqCst) {
+        let _ = app.emit(
+            BOOT_EVENT,
+            Progress { phase: "ready".into(), label: String::new(), progress: 1.0, done: true, error: None },
+        );
+        return;
+    }
+
+    let library = state.library.clone();
+    let device = state.engine.read().device.name.clone();
+
+    std::thread::Builder::new()
+        .name("nuru-boot".into())
+        .spawn(move || {
+            let emit = |p: Progress| {
+                let _ = app.emit(BOOT_EVENT, p);
+            };
+
+            emit(Progress::step("engine", device, 0.08));
+            emit(Progress::step("packs", "Reading sound packs", 0.16));
+
+            let started = std::time::Instant::now();
+            let (ok, bad) = library.verify_all(|i, total, name| {
+                let frac = if total == 0 { 1.0 } else { i as f32 / total as f32 };
+                emit(Progress::step(
+                    "verify",
+                    if name.is_empty() { String::new() } else { format!("Checking {name}") },
+                    0.16 + frac * 0.78,
+                ));
+            });
+            log::info!(
+                "verified {ok} sound(s) in {} ms{}",
+                started.elapsed().as_millis(),
+                if bad > 0 { format!(", {bad} unplayable") } else { String::new() }
+            );
+
+            emit(Progress {
+                phase: "ready".into(),
+                label: String::new(),
+                progress: 1.0,
+                done: true,
+                error: None,
+            });
+        })
+        .ok();
+}
+
+#[tauri::command]
+pub fn play_sound(state: State<'_, AppState>, sound_id: String, volume: f32) -> Result<(), String> {
     let (sound, path) = state.library.ensure_local(&sound_id).map_err(err)?;
     state
         .engine
+        .read()
         .add_layer(
             &sound_id,
             path,
@@ -54,7 +125,7 @@ pub fn play_sound(
 
 #[tauri::command]
 pub fn stop_sound(state: State<'_, AppState>, sound_id: String) -> Result<(), String> {
-    state.engine.remove_layer(&sound_id).map_err(err)
+    state.engine.read().remove_layer(&sound_id).map_err(err)
 }
 
 #[tauri::command]
@@ -63,38 +134,77 @@ pub fn set_sound_volume(
     sound_id: String,
     volume: f32,
 ) -> Result<(), String> {
-    state.engine.set_layer_fader(&sound_id, volume).map_err(err)
+    state.engine.read().set_layer_fader(&sound_id, volume).map_err(err)
 }
 
 #[tauri::command]
 pub fn set_master_volume(state: State<'_, AppState>, volume: f32) -> Result<(), String> {
-    state.engine.set_master(volume).map_err(err)
+    state.engine.read().set_master(volume).map_err(err)
 }
 
 #[tauri::command]
 pub fn set_playing(state: State<'_, AppState>, playing: bool) -> Result<(), String> {
-    state.engine.set_playing(playing).map_err(err)
+    state.engine.read().set_playing(playing).map_err(err)
 }
 
 #[tauri::command]
 pub fn stop_all(state: State<'_, AppState>) -> Result<(), String> {
-    state.engine.clear().map_err(err)
+    state.engine.read().clear().map_err(err)
 }
 
 #[tauri::command]
 pub fn engine_status(state: State<'_, AppState>) -> EngineStatus {
+    let engine = state.engine.read();
     EngineStatus {
-        device: state.engine.device.name.clone(),
-        sample_rate: state.engine.device.sample_rate,
-        channels: state.engine.device.channels,
+        device: engine.device.name.clone(),
+        sample_rate: engine.device.sample_rate,
+        channels: engine.device.channels,
         max_layers: MAX_LAYERS,
-        active: state.engine.active_sounds(),
-        underruns: state.engine.underruns(),
+        active: engine.active_sounds(),
+        underruns: engine.underruns(),
     }
 }
 
-/// Sounds currently loaded that must not ship. Surfaced in the About panel so a
-/// development build is never mistaken for a releasable one.
+#[tauri::command]
+pub fn list_output_devices(state: State<'_, AppState>) -> (Vec<String>, Option<String>, String) {
+    (
+        output_devices(),
+        state.settings.get().output_device,
+        state.engine.read().device.name.clone(),
+    )
+}
+
+#[tauri::command]
+pub fn set_output_device(state: State<'_, AppState>, device: Option<String>) -> Result<String, String> {
+    let engine = AudioEngine::open(device.as_deref()).map_err(err)?;
+    let name = engine.device.name.clone();
+    *state.engine.write() = engine;
+    state.settings.update(|s| s.output_device = device);
+    log::info!("output device switched to {name}");
+    Ok(name)
+}
+
+#[tauri::command]
+pub fn set_presence(
+    state: State<'_, AppState>,
+    details: String,
+    status: String,
+    active: bool,
+    started_at: Option<i64>,
+) {
+    state.presence.set(crate::discord::Status {
+        details,
+        state: status,
+        started_at,
+        active,
+    });
+}
+
+#[tauri::command]
+pub fn discord_now() -> i64 {
+    crate::discord::now_secs()
+}
+
 #[tauri::command]
 pub fn unshippable_sounds(state: State<'_, AppState>) -> Vec<String> {
     state.library.unshippable()

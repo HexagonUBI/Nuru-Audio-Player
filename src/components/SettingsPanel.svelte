@@ -11,6 +11,13 @@
     { id: 'slate', name: 'Slate', swatch: ['#15161c', '#7dd3fc'] },
   ];
 
+  const SIZES = [
+    { id: 'compact', name: 'Compact', preview: 14 },
+    { id: 'small', name: 'Small', preview: 18 },
+    { id: 'normal', name: 'Normal', preview: 23 },
+    { id: 'large', name: 'Large', preview: 29 },
+  ] as const;
+
   let unshippable = $state<string[]>([]);
   $effect(() => {
     void api.unshippableSounds().then((ids) => (unshippable = ids));
@@ -38,6 +45,44 @@
   </section>
 
   <section>
+    <h3>Tile size</h3>
+    <div class="sizes">
+      {#each SIZES as s (s.id)}
+        <button
+          class="u-pressable size"
+          class:on={nuru.tileSize === s.id}
+          onclick={() => nuru.setTileSize(s.id)}
+        >
+          <span class="box" style:--d="{s.preview}px"></span>
+          <span>{s.name}</span>
+        </button>
+      {/each}
+    </div>
+  </section>
+
+  <section>
+    <h3>Output device</h3>
+    <div class="select">
+      <select
+        value={nuru.outputDevice ?? ''}
+        onchange={(e) => {
+          const v = (e.currentTarget as HTMLSelectElement).value;
+          void nuru.setOutputDevice(v === '' ? null : v);
+        }}
+      >
+        <option value="">System default</option>
+        {#each nuru.outputDevices as d (d)}
+          <option value={d}>{d}</option>
+        {/each}
+      </select>
+    </div>
+    <p class="note">
+      Currently playing through {nuru.activeDevice || 'the system default'}. The choice is
+      remembered, and falls back to the default if the device is unplugged.
+    </p>
+  </section>
+
+  <section>
     <h3>Behaviour</h3>
     <label class="toggle">
       <input type="checkbox" bind:checked={nuru.restoreOnLaunch} />
@@ -53,7 +98,7 @@
     <h3>Audio</h3>
     <p class="line">
       <span class="k">Output</span>
-      <span class="v">{nuru.engineNote ?? '—'}</span>
+      <span class="v">{nuru.engineNote ?? '-'}</span>
     </p>
     <p class="note">
       Every sound is decoded from a local lossless file and looped at an exact
@@ -73,7 +118,7 @@
       {/if}
       {#if IS_PREVIEW}
         <p class="note">
-          Running in a browser, so the Rust audio engine is not attached — the
+          Running in a browser, so the Rust audio engine is not attached - the
           interface is live but silent.
         </p>
       {/if}
@@ -139,8 +184,68 @@
     width: 34px;
     height: 34px;
     border-radius: 50%;
-    outline: 1px solid var(--line);
-    outline-offset: -1px;
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  .sizes {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--sp-2);
+  }
+
+  .size {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--sp-2);
+    height: 74px;
+    padding: var(--sp-2);
+    border-radius: var(--r-md);
+    font: var(--t-caption);
+    color: var(--ink-60);
+    box-shadow: inset 0 0 0 1px var(--line-soft);
+  }
+  .size:hover,
+  .size:focus-visible {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--ink);
+  }
+  .size.on {
+    color: var(--ink);
+    background: var(--nuru-ghost);
+    box-shadow: inset 0 0 0 1.5px var(--nuru);
+  }
+
+  .box {
+    width: var(--d);
+    height: var(--d);
+    border-radius: 4px;
+    background: var(--ink-25);
+  }
+  .size.on .box {
+    background: var(--nuru);
+  }
+
+  .select {
+    position: relative;
+  }
+  .select select {
+    width: 100%;
+    padding: 9px 11px;
+    border-radius: var(--r-sm);
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 0 0 1px var(--line);
+    color: var(--ink);
+    font: var(--t-body);
+    cursor: default;
+  }
+  .select select:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .select option {
+    background: var(--s-700);
+    color: var(--ink);
   }
 
   .toggle {
@@ -184,7 +289,7 @@
     transform: translateX(14px);
     background: var(--ink-inverse);
   }
-  /* Focus lightens the track rather than ringing it. */
+
   .toggle input:focus-visible + .track {
     background: rgba(255, 255, 255, 0.2);
   }

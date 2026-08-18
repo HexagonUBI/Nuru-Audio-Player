@@ -13,7 +13,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 # Windows VERSIONINFO, which is what the Properties dialog on nuru.exe shows.
 # Cargo's `version` above has to be three-part semver, so the four-part string
-# lives here — but tauri-build writes its own resource over the top of this, so
+# lives here - but tauri-build writes its own resource over the top of this, so
 # these values are a record of intent rather than the thing that takes effect.
 # scripts/patch-version-resource.mjs restamps the exe after linking and before
 # bundling, and that is what actually lands. Kept in step by sync-version.mjs.
@@ -42,14 +42,14 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 # ── Audio ────────────────────────────────────────────────────────────────────
-# cpal   — the output device and its real-time callback.
-# symphonia — pure-Rust decoding. FLAC and WAV are what Nuru plays; the lossy
+# cpal   - the output device and its real-time callback.
+# symphonia - pure-Rust decoding. FLAC and WAV are what Nuru plays; the lossy
 #             codecs are enabled only so users can *import* their own files,
 #             which are then transcoded to FLAC before they are ever looped.
-# rubato — sinc resampling when the file rate and the device rate differ.
+# rubato - sinc resampling when the file rate and the device rate differ.
 #          Nearest-neighbour or linear resampling would put audible artefacts on
 #          top of a bed that is meant to disappear.
-# rtrb   — lock-free SPSC ring buffers. Nothing in the audio callback may
+# rtrb   - lock-free SPSC ring buffers. Nothing in the audio callback may
 #          allocate, lock, or block, so decoding happens on its own thread and
 #          reaches the callback through one of these.
 cpal = "0.15"
@@ -74,6 +74,7 @@ sha2 = "0.10"
 hex = "0.4"
 log = "0.4"
 tauri-plugin-log = "2"
+discord-rich-presence = "1.1.0"
 
 [features]
 # Tauri's own default; kept explicit so `cargo build --no-default-features`

@@ -1,16 +1,3 @@
-//! Sound packs on disk.
-//!
-//! A pack is a directory holding `catalogue.json`, an `audio/` folder and a
-//! `covers/` folder. Nuru looks in two places:
-//!
-//!   <resources>/packs/*   shipped with the app
-//!   <app data>/packs/*    downloaded from the sound database, or dropped in
-//!                         by hand during development
-//!
-//! Nothing plays from a URL. A downloaded pack is written to disk and its files
-//! checked against the hashes in its catalogue *before* it becomes playable, so
-//! a dropped connection can never turn into a gap in the audio. `ensure_local`
-//! is the gate that enforces it, and the play command is the only caller.
 
 use std::collections::HashMap;
 use std::fs;
@@ -24,13 +11,6 @@ use sha2::{Digest, Sha256};
 
 use crate::model::{Catalogue, Sound, SoundEntry, DEV_PLACEHOLDER_LICENCE};
 
-/// A file that has already passed its integrity check, and the fingerprint that
-/// says it has not been touched since.
-///
-/// Hashing the whole library costs a few seconds of disk read, and paying that
-/// on every launch to re-learn something that has not changed is waste. Size and
-/// modification time are enough to notice a file being replaced; if either
-/// moves, the hash is recomputed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CacheEntry {
     sha256: String,
@@ -43,7 +23,6 @@ struct VerifyCache {
     entries: HashMap<String, CacheEntry>,
 }
 
-/// Size and modification time of a file, as a cheap change fingerprint.
 fn fingerprint(path: &Path) -> Result<(u64, u64)> {
     let meta = fs::metadata(path)?;
     let mtime = meta
@@ -59,18 +38,15 @@ pub struct Pack {
     pub id: String,
     pub name: String,
     pub root: PathBuf,
+    pub builtin: bool,
     pub sounds: Vec<Sound>,
 }
 
 #[derive(Default)]
 pub struct Library {
     packs: RwLock<Vec<Pack>>,
-    /// sound id → pack index. Later packs win, so a user pack can override a
-    /// built-in sound by reusing its id.
     index: RwLock<HashMap<String, usize>>,
-    /// Files whose hash has already been checked this session.
     verified: RwLock<HashMap<String, bool>>,
-    /// The same knowledge, carried across launches.
     cache: RwLock<VerifyCache>,
     cache_path: RwLock<Option<PathBuf>>,
 }
@@ -80,8 +56,6 @@ impl Library {
         Self::default()
     }
 
-    /// Point the verification cache at a file and load whatever is already in it.
-    /// Without this the library still works, it just re-hashes on every launch.
     pub fn use_cache(&self, path: PathBuf) {
         if let Ok(raw) = fs::read_to_string(&path) {
             match serde_json::from_str::<VerifyCache>(&raw) {
@@ -110,11 +84,10 @@ impl Library {
         }
     }
 
-    /// Scan the given roots for packs, replacing whatever was loaded before.
-    pub fn scan(&self, roots: &[PathBuf]) -> Result<usize> {
+    pub fn scan(&self, roots: &[(PathBuf, bool)]) -> Result<usize> {
         let mut packs = Vec::new();
 
-        for root in roots {
+        for (root, builtin) in roots {
             if !root.is_dir() {
                 continue;
             }
@@ -126,7 +99,7 @@ impl Library {
                 if !manifest.is_file() {
                     continue;
                 }
-                match Self::read_pack(&dir, &manifest) {
+                match Self::read_pack(&dir, &manifest, *builtin) {
                     Ok(pack) => packs.push(pack),
                     Err(e) => log::warn!("skipping pack at {}: {e:#}", dir.display()),
                 }
@@ -147,7 +120,7 @@ impl Library {
         Ok(count)
     }
 
-    fn read_pack(dir: &Path, manifest: &Path) -> Result<Pack> {
+    fn read_pack(dir: &Path, manifest: &Path, builtin: bool) -> Result<Pack> {
         let raw = fs::read_to_string(manifest)
             .with_context(|| format!("reading {}", manifest.display()))?;
         let cat: Catalogue = serde_json::from_str(&raw)
@@ -159,17 +132,11 @@ impl Library {
             id: cat.pack,
             name: cat.pack_name,
             root: dir.to_path_buf(),
+            builtin,
             sounds: cat.sounds,
         })
     }
 
-    /// Every sound the app can offer, in catalogue order.
-    ///
-    /// A sound claimed by a later pack is served only from that pack, so an
-    /// override replaces the original rather than appearing beside it. Without
-    /// this the same sound shows up twice whenever two roots resolve to the same
-    /// pack — which is exactly what happens in a dev build, where the bundled
-    /// resources and the repo copy are both visible.
     pub fn entries(&self) -> Vec<SoundEntry> {
         let packs = self.packs.read();
         let index = self.index.read();
@@ -188,6 +155,8 @@ impl Library {
                 out.push(SoundEntry {
                     verified: verified.get(&sound.id).copied().unwrap_or(false),
                     pack: pack.id.clone(),
+                    pack_name: pack.name.clone(),
+                    builtin: pack.builtin,
                     audio_path: audio_path.to_string_lossy().into_owned(),
                     cover_path,
                     sound: sound.clone(),
@@ -210,10 +179,6 @@ impl Library {
         self.with_sound(id, |_, s| s.clone())
     }
 
-    /// Resolve a sound to a local, hash-verified file.
-    ///
-    /// This is the only way audio reaches the engine. It fails rather than
-    /// falling back to anything remote.
     pub fn ensure_local(&self, id: &str) -> Result<(Sound, PathBuf)> {
         let (sound, path) = self
             .with_sound(id, |pack, sound| (sound.clone(), pack.root.join(&sound.audio.file)))
@@ -221,7 +186,7 @@ impl Library {
 
         if !path.is_file() {
             return Err(anyhow!(
-                "'{id}' is listed but its audio is not on disk at {} — the pack needs downloading again",
+                "'{id}' is listed but its audio is not on disk at {} - the pack needs downloading again",
                 path.display()
             ));
         }
@@ -232,7 +197,6 @@ impl Library {
 
         let (size, mtime_ms) = fingerprint(&path)?;
 
-        // Already checked on an earlier launch, and untouched since.
         if let Some(hit) = self.cache.read().entries.get(id) {
             if hit.size == size
                 && hit.mtime_ms == mtime_ms
@@ -243,8 +207,6 @@ impl Library {
             }
         }
 
-        // An empty hash means the pack was authored without one (hand-made dev
-        // packs). Check the size instead of nothing.
         if sound.audio.sha256.is_empty() {
             if sound.audio.bytes != 0 && size != sound.audio.bytes {
                 return Err(anyhow!(
@@ -256,7 +218,7 @@ impl Library {
             let actual = hash_file(&path)?;
             if !actual.eq_ignore_ascii_case(&sound.audio.sha256) {
                 return Err(anyhow!(
-                    "'{id}' failed its integrity check — expected {}, got {actual}",
+                    "'{id}' failed its integrity check - expected {}, got {actual}",
                     sound.audio.sha256
                 ));
             }
@@ -270,8 +232,6 @@ impl Library {
         Ok((sound, path))
     }
 
-    /// Sounds that may not appear in a public build. The release script calls
-    /// this and refuses to bundle a pack that returns anything.
     pub fn unshippable(&self) -> Vec<String> {
         self.entries()
             .into_iter()
@@ -283,19 +243,17 @@ impl Library {
             .collect()
     }
 
-    /// Hash every sound now, on whatever thread calls this.
-    ///
-    /// `ensure_local` verifies lazily, which puts a few hundred milliseconds of
-    /// SHA-256 in front of the first play of a large file — long enough to feel
-    /// like the audio is being fetched from somewhere. Doing the whole library
-    /// up front on a background thread means the check is already cached by the
-    /// time anything is clicked. With the on-disk cache warm this is just a stat
-    /// per file, so only the very first launch after an install pays for it.
-    pub fn verify_all(&self) -> (usize, usize) {
-        let ids: Vec<String> = self.entries().into_iter().map(|e| e.sound.id).collect();
+    pub fn verify_all<F>(&self, mut progress: F) -> (usize, usize)
+    where
+        F: FnMut(usize, usize, &str),
+    {
+        let entries = self.entries();
+        let total = entries.len();
         let mut ok = 0;
         let mut bad = 0;
-        for id in ids {
+        for (i, entry) in entries.into_iter().enumerate() {
+            let id = entry.sound.id;
+            progress(i, total, &entry.sound.name);
             match self.ensure_local(&id) {
                 Ok(_) => ok += 1,
                 Err(e) => {
@@ -304,6 +262,7 @@ impl Library {
                 }
             }
         }
+        progress(total, total, "");
         self.save_cache();
         (ok, bad)
     }

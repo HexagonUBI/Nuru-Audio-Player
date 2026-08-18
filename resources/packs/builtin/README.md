@@ -1,7 +1,7 @@
 # Nuru Essentials
 
 The sound pack that ships inside the installer. Empty until Nuru has audio it
-owns — see the licensing note below.
+owns - see the licensing note below.
 
 A pack is a directory with this shape:
 
@@ -18,7 +18,7 @@ covers/<id>.png
 | --- | --- |
 | `audio.sha256` | Checked before the file is allowed to play. A pack downloaded from the sound database is not playable until it verifies. |
 | `audio.frames` | The engine's loop end when `loop.endSample` is null. |
-| `loop.startSample` / `loop.endSample` | Sample-exact loop bounds. Not seconds — a float second is not a sample. |
+| `loop.startSample` / `loop.endSample` | Sample-exact loop bounds. Not seconds - a float second is not a sample. |
 | `loop.crossfadeMs` | `0` when the material was authored to loop end-to-start. Anything else blends the tail into a copy of the head over this window. |
 | `loop.method` | `exact` for authored loops, `crossfade` for field recordings, `untuned` for anything not yet checked. |
 | `provenance.shippable` | Must be `true`. The engine loads unshippable sounds so development works, but flags them in Settings and the release build refuses to bundle them. |
@@ -30,7 +30,7 @@ FLAC, at the source's native rate, 16-bit unless the master is genuinely
 higher-resolution.
 
 Not AAC or MP3. Both carry encoder delay and padding, and both seek to a codec
-frame rather than a sample, which makes a sample-exact loop impossible — the
+frame rather than a sample, which makes a sample-exact loop impossible - the
 seam is either a click or a hiccup. FLAC decodes to exactly the samples that
 went in.
 

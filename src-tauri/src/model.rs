@@ -1,8 +1,6 @@
-//! Wire types shared with the UI. Mirrors src/lib/types.ts — keep them in step.
 
 use serde::{Deserialize, Serialize};
 
-/// The sentinel licence that marks development-only material.
 pub const DEV_PLACEHOLDER_LICENCE: &str = "UNLICENSED-DEV-PLACEHOLDER";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,18 +65,16 @@ pub struct Catalogue {
     pub sounds: Vec<Sound>,
 }
 
-/// A sound plus everything the UI needs to render and play it.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SoundEntry {
     #[serde(flatten)]
     pub sound: Sound,
     pub pack: String,
-    /// Absolute path to the audio file on this machine.
+    pub pack_name: String,
+    pub builtin: bool,
     pub audio_path: String,
-    /// Absolute path to the cover image on this machine, if it has one.
     pub cover_path: Option<String>,
-    /// False until the file has been checked against its recorded hash.
     pub verified: bool,
 }
 

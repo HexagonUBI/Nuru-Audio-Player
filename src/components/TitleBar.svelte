@@ -29,7 +29,7 @@
     <span class="wordmark">Nuru</span>
     <span class="version u-numeric">{VERSION}</span>
     {#if IS_PREVIEW}
-      <span class="tag" title="Running in a browser — the audio engine is not attached">
+      <span class="tag" title="Running in a browser - the audio engine is not attached">
         preview
       </span>
     {/if}
@@ -58,12 +58,11 @@
     {/if}
 
     <button
-      class="u-pressable tool"
+      class="u-pressable nook"
       onclick={() => (nuru.nookMode = true)}
-      aria-label="Nook mode"
-      title="Nook mode (F11)"
+      title="Cozy mode (F11)"
     >
-      <Icon name="nook" size={16} />
+      <span class="cozy-text">Cozy Mode</span>
     </button>
 
     <button
@@ -114,6 +113,9 @@
     font: var(--t-subtitle);
     font-weight: 600;
     letter-spacing: 0.01em;
+
+    position: relative;
+    top: 2px;
   }
 
   .version {
@@ -157,6 +159,28 @@
     background: var(--nuru-ghost);
   }
 
+  .nook {
+    height: 26px;
+    padding: 0 11px;
+    margin-inline: 4px;
+    border-radius: var(--r-pill);
+    font: var(--t-label);
+    font-family: var(--font-display);
+    color: var(--ink-60);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .cozy-text {
+    position: relative;
+    top: 2px;
+  }
+
+  .nook:hover,
+  .nook:focus-visible {
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+  }
+
   .pill {
     display: flex;
     align-items: center;
@@ -172,9 +196,7 @@
     box-shadow: 0 0 18px -4px var(--nuru);
   }
 
-  /* Windows' own titlebar metrics — 46×38 hit targets and the red close hover.
-     Matching them exactly is most of what makes a custom titlebar stop feeling
-     like a web page pretending to be a window. */
+
   .window-buttons {
     display: flex;
     margin-left: var(--sp-3);

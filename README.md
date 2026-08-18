@@ -1,6 +1,6 @@
 <h1>Nuru</h1>
 
-Nuru plays any combination of ambient sounds at once - rain over a café over a
+Nuru plays any combination of ambient sounds at once - rain over a cafe over a
 distant train - each seamlessly looped, mixed locally, and saved as a mix you can
 come back to.
 

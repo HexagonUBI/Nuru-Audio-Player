@@ -27,14 +27,12 @@ body {
   background: var(--app-bg);
   color: var(--ink);
   font: var(--t-body);
-  /* Nuru is a Windows app first; let the platform do the hinting. */
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   cursor: default;
   overscroll-behavior: none;
 }
 
-/* Nothing in a desktop app should be zoomable or selectable by accident. */
 img,
 svg {
   display: block;
@@ -69,14 +67,6 @@ ol {
   list-style: none;
 }
 
-/* ── Focus ────────────────────────────────────────────────────────────────────
-   No rings. Anywhere. A hard outline floating around a control is the single
-   most obvious tell that a desktop app is a web page in a window, and Nuru
-   should not read that way.
-
-   Keyboard focus is still shown — each control lights up the same way it does on
-   hover, defined alongside its hover rule. That keeps the app navigable without
-   a pixel of chrome that looks bolted on. */
 *,
 *::before,
 *::after {
@@ -84,15 +74,12 @@ ol {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Chromium paints its own ring on some controls through the UA sheet, which the
-   rule above does not always reach. */
 :focus,
 :focus-visible,
 :focus-within {
   outline: none !important;
 }
 
-/* ── Scrollbars ─────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -115,9 +102,6 @@ ol {
   background: transparent;
 }
 
-/* ── Shared primitives ────────────────────────────────────────────────────────
-   Small enough to live globally; anything larger belongs to a component. */
-
 .u-caps {
   font: var(--t-caption);
   letter-spacing: var(--tracking-caps);
@@ -131,8 +115,6 @@ ol {
   font-feature-settings: 'tnum' 1;
 }
 
-/* Interactive surfaces share one press behaviour so the whole app feels like
-   one object. Scale is tiny on purpose — 0.97 reads as a press, 0.9 as a bug. */
 .u-pressable {
   transition:
     transform var(--dur-3) var(--ease-spring),
@@ -149,7 +131,6 @@ ol {
   opacity: 0.32;
 }
 
-/* Regions of the window that drag it, and holes punched in them for controls. */
 .u-drag {
   -webkit-app-region: drag;
   app-region: drag;

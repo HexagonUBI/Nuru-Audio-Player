@@ -1,5 +1,4 @@
 <script lang="ts" module>
-  /** 24×24 outline icons, one path each, drawn to a common weight. */
   export const paths = {
     play: 'M8 5.5v13l11-6.5-11-6.5Z',
     pause: 'M9 5.5v13M15 5.5v13',

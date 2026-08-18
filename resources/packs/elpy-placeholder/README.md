@@ -1,6 +1,6 @@
-# Elpy placeholder pack — temporary
+# Elpy placeholder pack - temporary
 
-Everything else in this folder is generated from Elpy 1.1.4.0 (© Vane Jung) and
+Everything else in this folder is generated from Elpy 1.1.4.0 ((c) Vane Jung) and
 is **development material only**. It is bundled into local builds so there is
 something to listen to while Nuru's own recordings are sourced. It is not ours to
 publish.

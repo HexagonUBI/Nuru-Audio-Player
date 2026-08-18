@@ -1,18 +1,3 @@
-//! The mixer and its output stream.
-//!
-//! Threading, because it is the part that is easy to get wrong:
-//!
-//!   control thread   Tauri commands land here. Opens files, spawns decoders,
-//!                    and posts messages. Allowed to allocate and block.
-//!   decoder thread   One per layer. Decodes, resamples and loops into a
-//!                    lock-free ring. Allowed to allocate and block.
-//!   audio callback   Owned by the OS. Drains rings, applies gain, sums. May not
-//!                    allocate, lock, or block — doing any of those is what
-//!                    makes an audio app crackle under load.
-//!
-//! Everything crossing into the callback goes through an SPSC ring: samples one
-//! way, commands the other. Layers that die are posted *back* to the control
-//! thread on a third ring so the callback never runs a destructor.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -29,19 +14,12 @@ use rtrb::{Consumer, Producer, RingBuffer};
 use super::gain::{amplitude, tau, Smoothed};
 use super::source::Stream;
 
-/// How much decoded audio sits ahead of the callback, in seconds. Enough to ride
-/// out a disk hiccup or a scheduler stall; small enough that switching a sound
-/// off frees its memory promptly.
 const RING_SECONDS: f32 = 1.0;
 
-/// Samples the decoder hands over per iteration.
 const DECODE_CHUNK: usize = 4096;
 
-/// Ceiling on simultaneous layers. The callback's layer vector is allocated to
-/// this size up front and never grows, because growing it would allocate.
 pub const MAX_LAYERS: usize = 32;
 
-// ─── Messages ─────────────────────────────────────────────────────────────────
 
 enum Command {
     Add(Box<ActiveLayer>),
@@ -52,22 +30,15 @@ enum Command {
     SetPlaying(bool),
 }
 
-/// A layer as the audio callback sees it.
 struct ActiveLayer {
     handle: u64,
     samples: Consumer<f32>,
     gain: Smoothed,
-    /// Tells the decoder thread to wind up.
     stop: Arc<AtomicBool>,
-    /// Set once the layer is fading out; it is dropped when the fade completes.
     retiring: bool,
-    /// Incremented when the callback wanted samples and the ring was short.
-    /// Surfaced in diagnostics rather than logged, because logging from the
-    /// audio thread is itself a way to cause underruns.
     underruns: Arc<AtomicU32>,
 }
 
-// ─── Callback state ───────────────────────────────────────────────────────────
 
 struct Mixer {
     channels: usize,
@@ -75,15 +46,9 @@ struct Mixer {
     layers: Vec<Box<ActiveLayer>>,
     commands: Consumer<Command>,
     graveyard: Producer<Box<ActiveLayer>>,
-    /// The user's master volume.
     master: Smoothed,
-    /// Play/pause, kept separate from `master` so pausing can reach true zero
-    /// without forgetting what the volume was. Once it settles at zero the
-    /// callback stops draining the rings entirely, which parks the decoder
-    /// threads and resumes exactly where playback stopped.
     transport: Smoothed,
     playing: bool,
-    /// Per-frame master × transport gain for the current callback. Pre-allocated.
     master_scratch: Vec<f32>,
 }
 
@@ -93,9 +58,7 @@ impl Mixer {
             match cmd {
                 Command::Add(mut layer) => {
                     if self.layers.len() < MAX_LAYERS {
-                        // Start silent and ramp up, so switching a sound on is a
-                        // fade rather than a click.
-                        layer.gain.reset(0.0);
+                        layer.gain.silence();
                         self.layers.push(layer);
                     } else {
                         layer.stop.store(true, Ordering::Release);
@@ -105,9 +68,6 @@ impl Mixer {
                 Command::SetLayerFader { handle, fader } => {
                     if let Some(l) = self.layers.iter_mut().find(|l| l.handle == handle) {
                         if !l.retiring {
-                            // A drag wants a short time constant so the sound
-                            // tracks the handle; the long one is only for the
-                            // fades on either side of a layer's life.
                             l.gain.set_tau(tau::FADER, self.sample_rate);
                             l.gain.set_target(amplitude(fader));
                         }
@@ -136,7 +96,6 @@ impl Mixer {
         }
     }
 
-    /// Hand finished layers back to the control thread. Nothing is dropped here.
     fn retire(&mut self) {
         let mut i = 0;
         while i < self.layers.len() {
@@ -144,9 +103,6 @@ impl Mixer {
             if done {
                 let layer = self.layers.swap_remove(i);
                 layer.stop.store(true, Ordering::Release);
-                // If the graveyard is full the Box is dropped here, which
-                // allocates. That only happens if the control thread has stopped
-                // collecting entirely, at which point a hitch is the least of it.
                 let _ = self.graveyard.push(layer);
             } else {
                 i += 1;
@@ -160,8 +116,6 @@ impl Mixer {
 
         self.drain_commands();
 
-        // Paused and fully faded: emit silence without touching the rings, so
-        // the decoders idle and playback resumes exactly where it stopped.
         let silent = !self.playing && self.transport.settled();
         out.fill(0.0);
         if silent || self.layers.is_empty() {
@@ -169,7 +123,6 @@ impl Mixer {
             return;
         }
 
-        // Master ramp is per-frame and shared by every layer, so compute it once.
         let scratch = &mut self.master_scratch[..frames];
         for s in scratch.iter_mut() {
             *s = self.master.next() * self.transport.next();
@@ -181,8 +134,6 @@ impl Mixer {
             if have < want {
                 layer.underruns.fetch_add(1, Ordering::Relaxed);
             }
-            // Whole frames only — a partial frame would swap the channels for
-            // everything that follows.
             let take = (have.min(want) / ch) * ch;
             if take == 0 {
                 continue;
@@ -213,9 +164,6 @@ impl Mixer {
             chunk.commit_all();
         }
 
-        // Sums of many beds can exceed full scale. A hard clip there is the
-        // ugliest sound in the app, so fold the peaks with tanh, which is
-        // transparent below about -3 dBFS and soft above it.
         for s in out.iter_mut() {
             if s.abs() > 0.7 {
                 *s = s.signum() * (0.7 + 0.3 * ((s.abs() - 0.7) / 0.3).tanh());
@@ -226,7 +174,6 @@ impl Mixer {
     }
 }
 
-// ─── Engine ───────────────────────────────────────────────────────────────────
 
 pub struct DeviceInfo {
     pub name: String,
@@ -240,6 +187,7 @@ struct Layer {
     stop: Arc<AtomicBool>,
     underruns: Arc<AtomicU32>,
     decoder: Option<JoinHandle<()>>,
+    retiring: bool,
 }
 
 struct EngineInner {
@@ -251,23 +199,51 @@ struct EngineInner {
 
 pub struct AudioEngine {
     inner: Mutex<EngineInner>,
-    /// Held so the stream stays alive; cpal stops output when it is dropped.
     _stream: cpal::Stream,
     pub device: DeviceInfo,
 }
 
-// cpal::Stream is not Send on every backend, but the engine only ever lives
-// inside Tauri's managed state on the main thread, and every field that other
-// threads touch is behind the mutex or an atomic.
 unsafe impl Send for AudioEngine {}
 unsafe impl Sync for AudioEngine {}
 
+pub fn output_devices() -> Vec<String> {
+    let host = cpal::default_host();
+    let default = host.default_output_device().and_then(|d| d.name().ok());
+    let mut names: Vec<String> = match host.output_devices() {
+        Ok(devices) => devices.filter_map(|d| d.name().ok()).collect(),
+        Err(_) => Vec::new(),
+    };
+    names.sort();
+    names.dedup();
+    if let Some(d) = default {
+        names.retain(|n| n != &d);
+        names.insert(0, d);
+    }
+    names
+}
+
 impl AudioEngine {
     pub fn new() -> Result<Self> {
+        Self::open(None)
+    }
+
+    pub fn open(wanted: Option<&str>) -> Result<Self> {
         let host = cpal::default_host();
-        let device = host
-            .default_output_device()
-            .ok_or_else(|| anyhow!("no default audio output device"))?;
+
+        let device = wanted
+            .and_then(|want| {
+                host.output_devices().ok().and_then(|mut ds| {
+                    ds.find(|d| d.name().map(|n| n == want).unwrap_or(false))
+                })
+            })
+            .or_else(|| {
+                if let Some(want) = wanted {
+                    log::warn!("output device '{want}' is not available, using the default");
+                }
+                host.default_output_device()
+            })
+            .ok_or_else(|| anyhow!("no audio output device available"))?;
+
         let name = device.name().unwrap_or_else(|_| "unknown".into());
         let supported = device
             .default_output_config()
@@ -287,13 +263,9 @@ impl AudioEngine {
             layers: Vec::with_capacity(MAX_LAYERS),
             commands: cmd_rx,
             graveyard: grave_tx,
-            // Start muted and ramp to whatever the UI sets, so launching Nuru is
-            // never a jolt.
             master: Smoothed::new(0.0, tau::TRANSPORT, sample_rate),
             transport: Smoothed::new(1.0, tau::TRANSPORT, sample_rate),
             playing: true,
-            // 8192 frames is far above any sane buffer size; sized once so the
-            // callback never has to grow it.
             master_scratch: vec![0.0; 8192],
         };
 
@@ -339,7 +311,6 @@ impl AudioEngine {
         })
     }
 
-    /// Collect layers the callback has finished with and join their decoders.
     fn collect(inner: &mut EngineInner) {
         while let Ok(dead) = inner.graveyard.pop() {
             if let Some(i) = inner.layers.iter().position(|l| l.handle == dead.handle) {
@@ -360,11 +331,6 @@ impl AudioEngine {
             .map_err(|_| anyhow!("audio command queue is full"))
     }
 
-    /// Start playing a local file as a new layer.
-    ///
-    /// `path` must already exist on disk. Nuru never streams from the network:
-    /// a pack is downloaded and verified in full before any of it reaches here,
-    /// so playback can never stutter because a connection did.
     pub fn add_layer(
         &self,
         sound_id: &str,
@@ -381,18 +347,17 @@ impl AudioEngine {
         let mut inner = self.inner.lock();
         Self::collect(&mut inner);
 
-        if inner.layers.iter().any(|l| l.sound_id == sound_id) {
+        if inner.layers.iter().any(|l| l.sound_id == sound_id && !l.retiring) {
+            log::info!("'{sound_id}' is already playing, ignoring the request to add it again");
             return Ok(());
         }
-        if inner.layers.len() >= MAX_LAYERS {
+        if inner.layers.iter().filter(|l| !l.retiring).count() >= MAX_LAYERS {
             return Err(anyhow!("already playing the maximum of {MAX_LAYERS} sounds"));
         }
 
         let rate = self.device.sample_rate;
         let channels = self.device.channels;
 
-        // Crossfade length is specified in milliseconds against the *source*
-        // rate, which the stream resolves once it has opened the file.
         let mut stream = Stream::open(
             &path,
             loop_start,
@@ -420,8 +385,6 @@ impl AudioEngine {
                     while !stop.load(Ordering::Acquire) {
                         let slots = producer.slots();
                         if slots < channels {
-                            // The ring is full, which is the healthy state. Sleep
-                            // for a fraction of the buffer rather than spinning.
                             thread::sleep(Duration::from_millis(4));
                             continue;
                         }
@@ -430,8 +393,6 @@ impl AudioEngine {
                             log::error!("decoder for {id} stopped: {e:#}");
                             break;
                         }
-                        // The ring wraps, so the writable region can be two
-                        // slices; copy across the split rather than assuming one.
                         if let Ok(mut chunk) = producer.write_chunk(n) {
                             let (a, b) = chunk.as_mut_slices();
                             a.copy_from_slice(&scratch[..a.len()]);
@@ -462,6 +423,7 @@ impl AudioEngine {
             stop,
             underruns,
             decoder: Some(decoder),
+            retiring: false,
         });
         Ok(())
     }
@@ -469,16 +431,22 @@ impl AudioEngine {
     pub fn remove_layer(&self, sound_id: &str) -> Result<()> {
         let mut inner = self.inner.lock();
         Self::collect(&mut inner);
-        let Some(handle) = inner.layers.iter().find(|l| l.sound_id == sound_id).map(|l| l.handle)
+        let Some(i) = inner.layers.iter().position(|l| l.sound_id == sound_id && !l.retiring)
         else {
             return Ok(());
         };
+        inner.layers[i].retiring = true;
+        let handle = inner.layers[i].handle;
         Self::send(&mut inner, Command::Remove { handle })
     }
 
     pub fn set_layer_fader(&self, sound_id: &str, fader: f32) -> Result<()> {
         let mut inner = self.inner.lock();
-        let Some(handle) = inner.layers.iter().find(|l| l.sound_id == sound_id).map(|l| l.handle)
+        let Some(handle) = inner
+            .layers
+            .iter()
+            .find(|l| l.sound_id == sound_id && !l.retiring)
+            .map(|l| l.handle)
         else {
             return Ok(());
         };
@@ -498,17 +466,23 @@ impl AudioEngine {
     pub fn clear(&self) -> Result<()> {
         let mut inner = self.inner.lock();
         Self::collect(&mut inner);
+        for l in inner.layers.iter_mut() {
+            l.retiring = true;
+        }
         Self::send(&mut inner, Command::RemoveAll)
     }
 
     pub fn active_sounds(&self) -> Vec<String> {
         let mut inner = self.inner.lock();
         Self::collect(&mut inner);
-        inner.layers.iter().map(|l| l.sound_id.clone()).collect()
+        inner
+            .layers
+            .iter()
+            .filter(|l| !l.retiring)
+            .map(|l| l.sound_id.clone())
+            .collect()
     }
 
-    /// Total ring underruns since start. Non-zero means the decoders are not
-    /// keeping up — useful when someone reports crackling.
     pub fn underruns(&self) -> u32 {
         let inner = self.inner.lock();
         inner.layers.iter().map(|l| l.underruns.load(Ordering::Relaxed)).sum()

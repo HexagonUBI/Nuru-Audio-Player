@@ -9,9 +9,6 @@
 
   const canPlay = $derived(nuru.layers.length > 0);
 
-  // `animate:` needs the animated element to be the only child of its keyed
-  // block, so the layer/sound pairing is resolved here rather than with an
-  // {#if} inside the loop.
   const rows = $derived(
     nuru.layers
       .map((layer) => ({ layer, sound: nuru.byId.get(layer.soundId) }))
@@ -82,7 +79,7 @@
 
     {#if !nuru.layers.length}
       <p class="empty" in:fly={{ y: 8, duration: 260, easing: cubicOut }}>
-        Pick a sound to start. Layer as many as you like — they all loop and mix
+        Pick a sound to start. Layer as many as you like - they all loop and mix
         together.
       </p>
     {/if}
@@ -258,8 +255,6 @@
     box-shadow: var(--e-2);
   }
 
-  /* A ring that only exists while sound is coming out. Cheaper to read at a
-     glance than the play/pause glyph alone. */
   .transport.playing {
     box-shadow:
       var(--e-2),

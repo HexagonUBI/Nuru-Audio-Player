@@ -12,17 +12,6 @@ const MIME: Record<string, string> = {
   '.flac': 'audio/flac',
 };
 
-/**
- * Serves the development sound pack at /devpack/*.
- *
- * Only matters when Nuru is opened in a plain browser rather than through
- * Tauri: it lets the preview build show the real catalogue, names and cover art
- * instead of invented ones. The pack lives outside the Vite root, so it needs
- * its own middleware rather than publicDir.
- *
- * Keep this path in step with the pack directory — if it drifts, the Tauri app
- * keeps working and only the browser preview silently shows an empty grid.
- */
 function devPack(): Plugin {
   return {
     name: 'nuru-dev-pack',
@@ -42,13 +31,9 @@ function devPack(): Plugin {
   };
 }
 
-// Tauri drives the dev server; these settings keep HMR working inside WebView2
-// and stop Vite from hiding Rust compiler errors behind its own output.
 export default defineConfig({
   plugins: [svelte(), devPack()],
   resolve: {
-    // Mirrors the `paths` entry in tsconfig.json — tsconfig only teaches the
-    // type checker, the bundler needs telling separately.
     alias: { $lib: join(process.cwd(), 'src', 'lib') },
   },
   clearScreen: false,
@@ -57,13 +42,11 @@ export default defineConfig({
     strictPort: true,
     host: '127.0.0.1',
     watch: {
-      // src-tauri is Rust's business, not Vite's.
       ignored: ['**/src-tauri/**', '**/dev-notes/**'],
     },
   },
   envPrefix: ['VITE_', 'TAURI_'],
   build: {
-    // WebView2 on Windows 10 is evergreen Chromium; no need to down-level.
     target: 'chrome110',
     minify: 'esbuild',
     sourcemap: false,

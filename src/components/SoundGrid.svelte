@@ -65,21 +65,26 @@
           : 'Nothing matches that.'}
       </p>
     {:else}
-      <div class="grid">
-        {#each nuru.visibleSounds as sound, i (sound.id)}
-          <div
-            in:fly={{ y: 14, duration: 300, delay: Math.min(i * 22, 260), easing: cubicOut }}
-            out:fade={{ duration: 120 }}
-          >
-            <SoundTile
-              {sound}
-              active={nuru.activeIds.has(sound.id)}
-              loading={loadingIds.has(sound.id)}
-              ontoggle={() => nuru.toggle(sound.id)}
-            />
+      {#each nuru.groups as group (group.name)}
+        <section class="group">
+          <h2 class="u-caps">{group.name}<span class="count">{group.sounds.length}</span></h2>
+          <div class="grid">
+            {#each group.sounds as sound, i (sound.id)}
+              <div
+                in:fly={{ y: 14, duration: 300, delay: Math.min(i * 22, 260), easing: cubicOut }}
+                out:fade={{ duration: 120 }}
+              >
+                <SoundTile
+                  {sound}
+                  active={nuru.activeIds.has(sound.id)}
+                  loading={loadingIds.has(sound.id)}
+                  ontoggle={() => nuru.toggle(sound.id)}
+                />
+              </div>
+            {/each}
           </div>
-        {/each}
-      </div>
+        </section>
+      {/each}
     {/if}
   </div>
 </section>
@@ -120,7 +125,7 @@
   }
   .search:focus-within {
     background: rgba(255, 255, 255, 0.08);
-    /* Inset, so it reads as the field's own edge rather than a ring around it. */
+
     box-shadow: inset 0 0 0 1px var(--line-strong);
     color: var(--ink-60);
   }
@@ -188,14 +193,34 @@
     padding: var(--sp-5) var(--sp-6) var(--sp-8);
   }
 
+  .group + .group {
+    margin-top: var(--sp-8);
+  }
+
+  .group h2 {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-3);
+  }
+
+  .count {
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-25);
+    letter-spacing: 0;
+  }
+
   .grid {
     display: grid;
     gap: var(--tile-gap);
-    grid-template-columns: repeat(auto-fill, minmax(var(--tile-min), 1fr));
+
+    grid-template-columns: repeat(auto-fill, var(--tile-size));
+    justify-content: start;
   }
 
   .skeleton {
-    aspect-ratio: 1 / 1;
+    width: var(--tile-size);
+    height: var(--tile-size);
     border-radius: var(--tile-radius);
     background: linear-gradient(
       100deg,

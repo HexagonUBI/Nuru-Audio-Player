@@ -36,7 +36,7 @@
       </button>
     </div>
   {:else}
-    <p class="hint">Pause everything after…</p>
+    <p class="hint">Pause everything after...</p>
     <div class="grid">
       {#each PRESETS as m (m)}
         <button
@@ -174,9 +174,6 @@
     place-items: center;
   }
 
-  /* A conic gradient ring rather than an SVG arc: one element, no stroke maths,
-     and it animates smoothly because only the gradient stop moves. The label is
-     a sibling, not a child — the mask that punches the hole would eat it. */
   .ring {
     width: 148px;
     height: 148px;

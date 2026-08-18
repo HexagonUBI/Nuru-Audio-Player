@@ -1,13 +1,4 @@
 <script lang="ts">
-  /**
-   * A volume fader.
-   *
-   * Elpy read `offsetX` on click and pointermove, which is cheap and gives the
-   * solid-block look, but it breaks the moment the pointer leaves the track and
-   * it is invisible to a keyboard. This keeps the look and fixes both: pointer
-   * capture means the drag survives leaving the element, and it is a real
-   * slider to assistive tech.
-   */
   let {
     value,
     accent = 'var(--nuru)',
@@ -51,7 +42,6 @@
 
   function key(e: KeyboardEvent) {
     if (disabled) return;
-    // Shift for fine adjustment, matching every other slider on the platform.
     const step = e.shiftKey ? 0.01 : 0.05;
     let next: number | null = null;
     if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = value + step;
@@ -118,7 +108,6 @@
     height: 6px;
     border-radius: var(--r-pill);
     background: var(--accent);
-    /* The glow is what ties a fader to its tile — same colour, same bloom. */
     box-shadow: 0 0 14px -2px var(--accent);
     transition:
       height var(--dur-2) var(--ease-out),
@@ -144,8 +133,6 @@
       box-shadow var(--dur-3) var(--ease-out);
   }
 
-  /* The thumb only exists when it is wanted. At rest the fader is the solid bar
-     from the reference; on approach it becomes a control. */
   .fader:hover .thumb,
   .fader:focus-visible .thumb,
   .fader.dragging .thumb {
@@ -178,8 +165,6 @@
     display: none;
   }
 
-  /* Keyboard focus shows itself by doing what hover does — the track thickens
-     and the thumb appears (see the rules above). No ring. */
   .fader:focus-visible .rail,
   .fader:focus-visible .fill {
     height: 8px;

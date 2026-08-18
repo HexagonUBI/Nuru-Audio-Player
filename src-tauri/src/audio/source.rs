@@ -1,23 +1,3 @@
-//! Reading a file off disk and turning it into an endless, seamless stream at
-//! the output device's sample rate.
-//!
-//! Three layers, each doing one job:
-//!
-//!   FrameReader    decode → interleaved f32 at the file's own rate
-//!   LoopingSource  apply the loop, never runs out
-//!   Stream         channel-map and resample to what the device wants
-//!
-//! The loop is the whole point of this module, so it is worth being explicit
-//! about why it is built this way. Elpy — the app Nuru is a remake of — looped by
-//! watching `timeupdate` on an `<audio>` element and setting `currentTime` back
-//! to 0.5 s when it got near the end. That fails three ways at once: the event
-//! fires roughly every 250 ms so the wrap point is wherever it happens to land,
-//! `currentTime` on a compressed stream seeks to a codec frame rather than a
-//! sample, and AAC's encoder delay means the decoded output does not begin where
-//! the file says it does. It only passes unnoticed because rain masks it.
-//!
-//! Here the wrap happens in the producer, at an exact sample index, on a codec
-//! that decodes to exactly the samples that went in.
 
 use std::collections::VecDeque;
 use std::fs::File;
@@ -37,20 +17,15 @@ use symphonia::core::probe::Hint;
 
 use super::gain::equal_power;
 
-// ─── FrameReader ──────────────────────────────────────────────────────────────
-
-/// Decodes a local file to interleaved `f32`, and can seek to an exact frame.
 pub struct FrameReader {
     reader: Box<dyn FormatReader>,
     decoder: Box<dyn Decoder>,
     track_id: u32,
     sample_buf: Option<SampleBuffer<f32>>,
 
-    /// Decoded samples from the last packet that the caller has not taken yet.
     pending: Vec<f32>,
     pending_cursor: usize,
 
-    /// Index of the next frame `read` will hand out.
     next_frame: u64,
 
     pub rate: u32,
@@ -104,7 +79,6 @@ impl FrameReader {
         })
     }
 
-    /// Decode one packet from the track into `pending`. Returns false at EOF.
     fn decode_next(&mut self) -> Result<bool> {
         loop {
             let packet = match self.reader.next_packet() {
@@ -132,9 +106,6 @@ impl FrameReader {
                     let buf = self
                         .sample_buf
                         .get_or_insert_with(|| SampleBuffer::<f32>::new(capacity, spec));
-                    // A stream whose spec changes mid-file would need a new
-                    // buffer; Nuru only plays files it transcoded itself, so
-                    // treat it as a hard error rather than silently mangling it.
                     if buf.capacity() < decoded.frames() * spec.channels.count() {
                         *buf = SampleBuffer::<f32>::new(capacity, spec);
                     }
@@ -144,16 +115,12 @@ impl FrameReader {
                     self.pending_cursor = 0;
                     return Ok(true);
                 }
-                // A single corrupt packet should drop out of the bed, not kill
-                // the stream.
                 Err(SymphoniaError::DecodeError(_)) => continue,
                 Err(e) => return Err(e.into()),
             }
         }
     }
 
-    /// Fill `out` with interleaved frames. Returns frames written, which is less
-    /// than requested only at end of file.
     pub fn read(&mut self, out: &mut [f32]) -> Result<usize> {
         let ch = self.channels;
         let want = out.len() / ch;
@@ -179,11 +146,6 @@ impl FrameReader {
         Ok(done)
     }
 
-    /// Seek so the next `read` returns frame `frame`.
-    ///
-    /// Containers are allowed to land earlier than asked, so whatever the
-    /// demuxer actually gave us gets discarded up to the requested frame. That
-    /// discard is what makes the seek sample-exact rather than packet-exact.
     pub fn seek_to_frame(&mut self, frame: u64) -> Result<()> {
         let seeked = self.reader.seek(
             SeekMode::Accurate,
@@ -210,30 +172,18 @@ impl FrameReader {
     }
 }
 
-// ─── LoopingSource ────────────────────────────────────────────────────────────
-
-/// How a source wraps back to its loop start.
 #[derive(Debug, Clone, Copy)]
 pub enum LoopMode {
-    /// The material was authored to loop: the last sample joins the first with
-    /// no discontinuity. Nothing to blend, so nothing is blended.
     Exact,
-    /// The material was not authored to loop — a field recording of rain has no
-    /// reason for its end to match its beginning. The tail is crossfaded into a
-    /// copy of the head over `frames`, which makes the join inaudible at the
-    /// cost of shortening the loop by that much.
     Crossfade { frames: u64 },
 }
 
-/// An endless stream of interleaved frames at the file's own sample rate.
 pub struct LoopingSource {
     reader: FrameReader,
     loop_start: u64,
     loop_end: u64,
     mode: LoopMode,
-    /// A decoded copy of the first `frames` of the loop, mixed into the tail.
     head: Vec<f32>,
-    /// Playback position on the source timeline.
     pos: u64,
 }
 
@@ -253,8 +203,6 @@ impl LoopingSource {
         }
 
         let body = loop_end - loop_start;
-        // Never let the crossfade eat more than a third of the loop; past that
-        // the result is a tremolo, not a loop.
         let xfade = crossfade_frames.min(body / 3);
         let mode = if xfade == 0 { LoopMode::Exact } else { LoopMode::Crossfade { frames: xfade } };
 
@@ -281,7 +229,6 @@ impl LoopingSource {
         self.reader.rate
     }
 
-    /// First frame of the crossfade region, or `loop_end` when there is none.
     fn fade_start(&self) -> u64 {
         match self.mode {
             LoopMode::Exact => self.loop_end,
@@ -290,8 +237,6 @@ impl LoopingSource {
     }
 
     fn wrap(&mut self) -> Result<()> {
-        // With a crossfade the head has already been played, mixed under the
-        // tail, so playback resumes past it. Without one it resumes at the top.
         let resume = match self.mode {
             LoopMode::Exact => self.loop_start,
             LoopMode::Crossfade { frames } => self.loop_start + frames,
@@ -301,13 +246,10 @@ impl LoopingSource {
         Ok(())
     }
 
-    /// Fill `out` completely with interleaved frames. This never returns short —
-    /// the stream has no end.
     pub fn read(&mut self, out: &mut [f32]) -> Result<()> {
         let ch = self.reader.channels;
         let want = out.len() / ch;
         let mut done = 0;
-        // A pathological loop (empty body, unreadable file) must not spin here.
         let mut wraps = 0;
 
         while done < want {
@@ -350,8 +292,6 @@ impl LoopingSource {
                 wraps = 0;
             }
 
-            // Short read means the file ended earlier than its header claimed.
-            // Treat wherever we stopped as the real loop end and carry on.
             if got < n {
                 if got == 0 && self.pos < boundary {
                     self.loop_end = self.pos.max(self.loop_start + 1);
@@ -367,24 +307,17 @@ impl LoopingSource {
     }
 }
 
-// ─── Stream ───────────────────────────────────────────────────────────────────
-
-/// Chunk size handed to the resampler. Bigger amortises the sinc cost, smaller
-/// keeps the producer responsive to a stop request.
 const RESAMPLE_CHUNK: usize = 1024;
 
-/// A `LoopingSource` mapped to the device's channel count and sample rate.
 pub struct Stream {
     src: LoopingSource,
     out_channels: usize,
 
     resampler: Option<SincFixedIn<f32>>,
-    /// Interleaved source-channel input, one resampler chunk worth.
     in_interleaved: Vec<f32>,
     in_planar: Vec<Vec<f32>>,
     out_planar: Vec<Vec<f32>>,
 
-    /// Device-rate, device-channel frames waiting to be handed out.
     ready: VecDeque<f32>,
 }
 
@@ -401,8 +334,6 @@ impl Stream {
         let src_rate = src.rate();
         let src_ch = src.channels();
 
-        // The common case — a pack transcoded at the device rate — skips the
-        // resampler entirely rather than running it at ratio 1.0.
         let resampler = if src_rate == device_rate {
             None
         } else {
@@ -433,9 +364,6 @@ impl Stream {
         })
     }
 
-    /// Mono sources go to every output channel; anything wider than the device
-    /// keeps its first channels. Real surround downmixing is out of scope —
-    /// Nuru's packs are mono or stereo.
     fn map_channels(&mut self, frames: usize) {
         let src_ch = self.src.channels();
         for c in 0..self.out_channels {
@@ -447,7 +375,6 @@ impl Stream {
         }
     }
 
-    /// Decode, map and resample one chunk into `ready`.
     fn pump(&mut self) -> Result<()> {
         self.src.read(&mut self.in_interleaved)?;
         self.map_channels(RESAMPLE_CHUNK);
@@ -472,7 +399,6 @@ impl Stream {
         Ok(())
     }
 
-    /// Fill `out` with interleaved device-rate frames. Always fills completely.
     pub fn read(&mut self, out: &mut [f32]) -> Result<()> {
         let mut written = 0;
         while written < out.len() {

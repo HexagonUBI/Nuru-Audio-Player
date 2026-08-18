@@ -1,18 +1,17 @@
-/**
- * The one place the UI touches the backend.
- *
- * Nuru's UI has to run in two places: inside Tauri, where audio is real, and in
- * a plain browser, where it is being designed. Rather than sprinkling `if
- * (isTauri)` through components, everything goes through this module and the
- * preview implementation is swapped in wholesale.
- *
- * Preview mode is deliberately silent. It would be easy to make `<audio>` play
- * the FLAC files, but that would be a different loop implementation from the one
- * that ships, and a design preview that sounds wrong is worse than one that says
- * nothing.
- */
+
 
 import type { EngineStatus, SoundEntry, Catalogue } from './types';
+
+
+export interface Progress {
+  phase: string;
+  label: string;
+  progress: number;
+  done: boolean;
+  error: string | null;
+}
+
+export const BOOT_EVENT = 'nuru://boot';
 
 export type Runtime = 'tauri' | 'preview';
 
@@ -32,10 +31,7 @@ if (RUNTIME === 'tauri') {
   invoke = mod.invoke as Invoke;
 }
 
-/* ── Asset URLs ────────────────────────────────────────────────────────────
-   Under Tauri, cover art is read from disk through the asset protocol, which
-   the CSP and the capability file both scope to the pack directories. In the
-   browser it comes from the dev-pack middleware in vite.config.ts. */
+
 
 let convertFileSrc: (p: string) => string = (p) => p;
 if (RUNTIME === 'tauri') {
@@ -48,7 +44,7 @@ export function coverUrl(entry: SoundEntry): string | null {
   return entry.coverPath ? convertFileSrc(entry.coverPath) : null;
 }
 
-/* ── Preview backend ───────────────────────────────────────────────────────── */
+
 
 const previewState = {
   active: new Set<string>(),
@@ -64,6 +60,8 @@ async function previewSounds(): Promise<SoundEntry[]> {
     previewState.loaded = cat.sounds.map((s) => ({
       ...s,
       pack: cat.pack,
+      packName: cat.packName,
+      builtin: true,
       audioPath: '',
       coverPath: null,
       verified: false,
@@ -74,9 +72,56 @@ async function previewSounds(): Promise<SoundEntry[]> {
   return previewState.loaded;
 }
 
-/* ── API ───────────────────────────────────────────────────────────────────── */
+
+
+
+export async function onProgress(
+  event: string,
+  cb: (p: Progress) => void,
+): Promise<() => void> {
+  if (IS_PREVIEW) {
+    const steps: Progress[] = [
+      { phase: 'engine', label: 'Preview, no audio engine', progress: 0.1, done: false, error: null },
+      { phase: 'packs', label: 'Reading sound packs', progress: 0.25, done: false, error: null },
+      { phase: 'verify', label: 'Checking sounds', progress: 0.7, done: false, error: null },
+      { phase: 'ready', label: '', progress: 1, done: true, error: null },
+    ];
+    let i = 0;
+    const timer = setInterval(() => {
+      if (i >= steps.length) return clearInterval(timer);
+      cb(steps[i++]);
+    }, 260);
+    return () => clearInterval(timer);
+  }
+  const { listen } = await import('@tauri-apps/api/event');
+  const un = await listen<Progress>(event, (e) => cb(e.payload));
+  return un;
+}
 
 export const api = {
+  async boot(): Promise<void> {
+    if (IS_PREVIEW) return;
+    return invoke('boot');
+  },
+
+  async listOutputDevices(): Promise<{
+    devices: string[];
+    saved: string | null;
+    active: string;
+  }> {
+    if (IS_PREVIEW) {
+      return { devices: ['Preview output'], saved: null, active: 'Preview output' };
+    }
+    const [devices, saved, active] =
+      await invoke<[string[], string | null, string]>('list_output_devices');
+    return { devices, saved, active };
+  },
+
+  async setOutputDevice(device: string | null): Promise<string> {
+    if (IS_PREVIEW) return 'Preview output';
+    return invoke<string>('set_output_device', { device });
+  },
+
   async listSounds(): Promise<SoundEntry[]> {
     if (IS_PREVIEW) return previewSounds();
     return invoke<SoundEntry[]>('list_sounds');
@@ -135,6 +180,21 @@ export const api = {
     return invoke<EngineStatus>('engine_status');
   },
 
+  async setPresence(
+    details: string,
+    status: string,
+    active: boolean,
+    startedAt: number | null,
+  ): Promise<void> {
+    if (IS_PREVIEW) return;
+    return invoke('set_presence', { details, status, active, startedAt });
+  },
+
+  async now(): Promise<number> {
+    if (IS_PREVIEW) return Math.floor(Date.now() / 1000);
+    return invoke<number>('discord_now');
+  },
+
   async unshippableSounds(): Promise<string[]> {
     if (IS_PREVIEW) {
       const sounds = await previewSounds();
@@ -144,7 +204,7 @@ export const api = {
   },
 };
 
-/* ── Window controls ───────────────────────────────────────────────────────── */
+
 
 export const win = {
   async minimize() {
@@ -162,6 +222,7 @@ export const win = {
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
     await getCurrentWindow().close();
   },
+
   async setFullscreen(on: boolean) {
     if (IS_PREVIEW) {
       if (on) await document.documentElement.requestFullscreen().catch(() => {});
@@ -169,6 +230,18 @@ export const win = {
       return;
     }
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
-    await getCurrentWindow().setFullscreen(on);
+    const w = getCurrentWindow();
+
+    if (on) {
+      wasMaximized = await w.isMaximized();
+      if (wasMaximized) await w.unmaximize();
+      await w.setFullscreen(true);
+    } else {
+      await w.setFullscreen(false);
+      if (wasMaximized) await w.maximize();
+      wasMaximized = false;
+    }
   },
 };
+
+let wasMaximized = false;
