@@ -1,4 +1,4 @@
-const REPO = 'SimpleFox/Nuru-Audio-Player';
+const REPO = 'HexagonUBI/Nuru-Audio-Player';
 
 function pick(assets, test) {
   return assets.find((a) => test(a.name.toLowerCase()));
@@ -65,3 +65,22 @@ async function loadRelease() {
 }
 
 loadRelease();
+
+const topWrap = document.getElementById('top-wrap');
+if (topWrap) {
+  const onScroll = () => topWrap.classList.toggle('scrolled', window.scrollY > 8);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+}
+
+const shot = document.getElementById('hero-shot');
+if (shot && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  const onLean = () => {
+    const rect = shot.getBoundingClientRect();
+    const travelled = Math.min(1, Math.max(0, 1 - rect.top / window.innerHeight));
+    shot.style.setProperty('--lean', String(1 - travelled));
+  };
+  window.addEventListener('scroll', onLean, { passive: true });
+  window.addEventListener('resize', onLean);
+  onLean();
+}

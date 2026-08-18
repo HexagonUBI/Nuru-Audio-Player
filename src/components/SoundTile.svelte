@@ -86,7 +86,7 @@
 
   .tint {
     background: var(--accent);
-    mix-blend-mode: color;
+    mix-blend-mode: screen;
     opacity: 0;
     transition: opacity var(--dur-3) var(--ease-out);
   }
@@ -125,15 +125,24 @@
   }
 
   .tile.active .dim {
-    opacity: 0.04;
+    opacity: 0;
   }
 
   .tile.active .art {
-    filter: brightness(1.18) saturate(1.12);
+    filter: brightness(1.16) contrast(1.2) saturate(1.45);
   }
 
   .tile.active .tint {
-    opacity: 0.78;
+    opacity: 0.92;
+  }
+
+  .tile.active .scrim {
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0) 48%);
+  }
+
+  .tile.active .label {
+    color: rgba(10, 11, 13, 0.88);
+    text-shadow: 0 1px 10px rgba(255, 255, 255, 0.45);
   }
 
   .tile.active:hover {

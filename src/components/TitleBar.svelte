@@ -36,6 +36,22 @@
   </div>
 
   <div class="tools u-nodrag">
+    <button
+      class="u-pressable nook"
+      onclick={() => (nuru.nookMode = true)}
+      title="Cozy mode (F11)"
+    >
+      <span class="cozy-text">Cozy Mode</span>
+    </button>
+    {#if nuru.update?.available}
+      <button
+        class="u-pressable pill update"
+        onclick={() => (nuru.activePanel = 'settings')}
+        title="Nuru {nuru.update.available.version} is available"
+      >
+        Update
+      </button>
+    {/if}
     {#if timerLabel}
       <button
         class="u-pressable pill live"
@@ -57,13 +73,6 @@
       </button>
     {/if}
 
-    <button
-      class="u-pressable nook"
-      onclick={() => (nuru.nookMode = true)}
-      title="Cozy mode (F11)"
-    >
-      <span class="cozy-text">Cozy Mode</span>
-    </button>
 
     <button
       class="u-pressable tool"
@@ -190,6 +199,14 @@
     border-radius: var(--r-pill);
     font: var(--t-caption);
   }
+  .pill.update {
+    color: var(--ink-inverse);
+    background: var(--nuru);
+    font-family: var(--font-display);
+    font-weight: 600;
+    box-shadow: 0 0 18px -4px var(--nuru);
+  }
+
   .pill.live {
     color: var(--ink-inverse);
     background: var(--nuru);

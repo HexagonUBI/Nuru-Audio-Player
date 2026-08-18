@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 SIZE = 1024
 SS = 4
@@ -21,51 +21,44 @@ def lerp(a: tuple[int, ...], b: tuple[int, ...], t: float) -> tuple[int, ...]:
 
 def build() -> Image.Image:
     n = SIZE * SS
-    img = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    base = Image.new("RGB", (n, n), (0, 0, 0))
+    masks = []
 
-    plate = Image.new("RGBA", (n, n), (0, 0, 0, 0))
-    pd = ImageDraw.Draw(plate)
-    for y in range(n):
-        pd.line([(0, y), (n, y)], fill=(*lerp(BG_TOP, BG_BOTTOM, y / n), 255))
+    r = n * 0.255
+    cx, cy = n / 2, n / 2
+    spread = n * 0.155
+    centres = [
+        (cx, cy - spread * 1.05),
+        (cx - spread, cy + spread * 0.72),
+        (cx + spread, cy + spread * 0.72),
+    ]
+    colours = [(255, 196, 104), (255, 142, 108), (255, 226, 150)]
 
-    mask = Image.new("L", (n, n), 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, n - 1, n - 1], radius=int(n * 0.22), fill=255)
-    img.paste(plate, (0, 0), mask)
+    for (px, py), colour in zip(centres, colours):
+        layer = Image.new("RGB", (n, n), (0, 0, 0))
+        mask = Image.new("L", (n, n), 0)
+        ImageDraw.Draw(layer).ellipse([px - r, py - r, px + r, py + r], fill=colour)
+        ImageDraw.Draw(mask).ellipse([px - r, py - r, px + r, py + r], fill=255)
+        base = ImageChops.add(base, layer)
+        masks.append(mask)
+
+    alpha = masks[0]
+    for m in masks[1:]:
+        alpha = ImageChops.lighter(alpha, m)
+
+    img = base.convert("RGBA")
+    img.putalpha(alpha)
 
     glow = Image.new("RGBA", (n, n), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    cx, cy = n / 2, n * 0.645
-    gd.ellipse(
-        [cx - n * 0.30, cy - n * 0.30, cx + n * 0.30, cy + n * 0.30],
-        fill=(*AMBER, 120),
+    ImageDraw.Draw(glow).ellipse(
+        [cx - n * 0.36, cy - n * 0.36, cx + n * 0.36, cy + n * 0.36],
+        fill=(*AMBER, 90),
     )
-    glow = glow.filter(ImageFilter.GaussianBlur(n * 0.075))
-    img.alpha_composite(Image.composite(glow, Image.new("RGBA", (n, n), (0, 0, 0, 0)), mask))
+    glow = glow.filter(ImageFilter.GaussianBlur(n * 0.06))
+    out = Image.alpha_composite(glow, img)
 
-    d = ImageDraw.Draw(img)
+    return out.resize((SIZE, SIZE), Image.LANCZOS)
 
-    r = n * 0.098
-    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(*AMBER_BRIGHT, 255))
-
-    for radius_f, width_f, alpha in ((0.185, 0.055, 200), (0.300, 0.049, 105)):
-        rr = n * radius_f
-        d.arc(
-            [cx - rr, cy - rr, cx + rr, cy + rr],
-            start=180,
-            end=360,
-            fill=(*AMBER, alpha),
-            width=max(1, int(n * width_f)),
-        )
-
-    for radius_f, width_f, alpha in ((0.185, 0.055, 200), (0.300, 0.049, 105)):
-        rr = n * radius_f
-        cap = n * width_f / 2
-        for sx in (cx - rr, cx + rr):
-            d.ellipse([sx - cap, cy - cap, sx + cap, cy + cap], fill=(*AMBER, alpha))
-
-    img.putalpha(Image.composite(img.getchannel("A"), Image.new("L", (n, n), 0), mask))
-
-    return img.resize((SIZE, SIZE), Image.LANCZOS)
 
 MSIX_ASSETS = {
     "Square44x44Logo": [(44, 100), (55, 125), (66, 150), (88, 200), (176, 400)],
@@ -94,7 +87,7 @@ def write_msix_assets(icon: Image.Image) -> None:
 
     for px, scale in [(310, 100), (388, 125), (465, 150), (620, 200), (1240, 400)]:
         h = round(px * 150 / 310)
-        wide = Image.new("RGBA", (px, h), (19, 20, 23, 255))
+        wide = Image.new("RGBA", (px, h), (0, 0, 0, 0))
         mark = icon.resize((h, h), Image.LANCZOS)
         wide.paste(mark, ((px - h) // 2, 0), mark)
         wide.save(out / f"Wide310x150Logo.scale-{scale}.png")
@@ -114,12 +107,33 @@ def write_msix_assets(icon: Image.Image) -> None:
     count = len(list(out.glob("*.png")))
     print(f"wrote {count} MSIX assets to {out}")
 
+def write_svg() -> None:
+    svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <g style="mix-blend-mode:screen">
+    <circle cx="32" cy="22" r="16" fill="#ffc468"/>
+    <circle cx="22" cy="41" r="16" fill="#ff8e6c"/>
+    <circle cx="42" cy="41" r="16" fill="#ffe296"/>
+  </g>
+</svg>
+"""
+    target = ROOT / "docs" / "assets" / "icon.svg"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(svg, encoding="utf-8")
+    print(f"wrote {target}")
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     icon = build()
     icon.save(OUT / "source.png")
     print(f"wrote {OUT / 'source.png'} ({SIZE}x{SIZE})")
     write_msix_assets(icon)
+    write_svg()
+
+    web = ROOT / "docs" / "assets" / "icon.png"
+    web.parent.mkdir(parents=True, exist_ok=True)
+    icon.resize((256, 256), Image.LANCZOS).save(web)
+    print(f"wrote {web}")
 
 if __name__ == "__main__":
     main()

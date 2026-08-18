@@ -1,6 +1,6 @@
 
 
-import { api, onProgress, BOOT_EVENT, type Progress } from './bridge';
+import { api, onProgress, BOOT_EVENT, UPDATE_EVENT, type Progress, type UpdateStatus } from './bridge';
 import { randomAccent, randomLine } from './splash';
 import { presenceFor } from './presence';
 import type { Layer, Preset, SoundEntry, TimerState } from './types';
@@ -253,6 +253,8 @@ class NuruStore {
       await new Promise((r) => setTimeout(r, MIN_BOOT_MS - held));
     }
     this.boot = { ...this.boot, progress: 1, visible: false };
+
+    void this.checkUpdate().catch(() => {});
   }
 
   private presenceStartedAt: number | null = null;
@@ -270,6 +272,56 @@ class NuruStore {
       const { details, status } = presenceFor(this.scene, this.layers, this.byId, this.nookMode);
       void api.setPresence(details, status, playing, this.presenceStartedAt);
     }, 1200);
+  }
+
+  update = $state<UpdateStatus | null>(null);
+  updateBusy = $state(false);
+
+  async checkUpdate(quiet = true) {
+    const status = await api.checkUpdate();
+    this.update = status;
+    if (!quiet) {
+      if (status.available) this.toast(`Nuru ${status.available.version} is available`);
+      else if (status.error) this.toast(status.error, 'error');
+      else this.toast('Nuru is up to date');
+    }
+    return status;
+  }
+
+  async installUpdate() {
+    if (this.updateBusy) return;
+    this.updateBusy = true;
+
+    this.boot = {
+      ...this.boot,
+      visible: true,
+      mode: 'update',
+      phase: 'checking',
+      label: 'Preparing',
+      progress: 0,
+      line: randomLine(),
+      accent: randomAccent(),
+      error: null,
+    };
+
+    const unlisten = await onProgress(UPDATE_EVENT, (p: Progress) => {
+      this.boot = {
+        ...this.boot,
+        phase: p.phase,
+        label: p.label,
+        progress: Math.max(this.boot.progress, p.progress),
+        error: p.error,
+      };
+      if (p.error) {
+        this.updateBusy = false;
+        setTimeout(() => {
+          this.boot = { ...this.boot, visible: false };
+        }, 3200);
+      }
+    });
+
+    await api.installUpdate();
+    void unlisten;
   }
 
   setTileSize(size: TileSize) {

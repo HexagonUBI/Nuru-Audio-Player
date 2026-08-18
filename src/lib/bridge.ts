@@ -12,6 +12,26 @@ export interface Progress {
 }
 
 export const BOOT_EVENT = 'nuru://boot';
+export const UPDATE_EVENT = 'nuru://update';
+
+export interface ReleaseInfo {
+  version: string;
+  tagName: string;
+  title: string;
+  notes: string;
+  publishedIso: string | null;
+  htmlUrl: string;
+  downloadUrl: string | null;
+  downloadSizeBytes: number | null;
+}
+
+export interface UpdateStatus {
+  currentVersion: string;
+  available: ReleaseInfo | null;
+  checkedIso: string;
+  error: string | null;
+  channel: string;
+}
 
 export type Runtime = 'tauri' | 'preview';
 
@@ -195,6 +215,24 @@ export const api = {
     return invoke<number>('discord_now');
   },
 
+  async checkUpdate(): Promise<UpdateStatus> {
+    if (IS_PREVIEW) {
+      return {
+        currentVersion: '0.0.0.0',
+        available: null,
+        checkedIso: '',
+        error: 'Updates are not available in preview',
+        channel: 'preview',
+      };
+    }
+    return invoke<UpdateStatus>('check_update');
+  },
+
+  async installUpdate(): Promise<void> {
+    if (IS_PREVIEW) return;
+    return invoke('install_update');
+  },
+
   async unshippableSounds(): Promise<string[]> {
     if (IS_PREVIEW) {
       const sounds = await previewSounds();
@@ -205,6 +243,15 @@ export const api = {
 };
 
 
+
+export async function openUrl(url: string): Promise<void> {
+  if (IS_PREVIEW) {
+    window.open(url, '_blank', 'noopener');
+    return;
+  }
+  const { openUrl: open } = await import('@tauri-apps/plugin-opener');
+  await open(url);
+}
 
 export const win = {
   async minimize() {

@@ -207,8 +207,6 @@ fn a_sound_can_be_switched_off_and_straight_back_on() {
 
     engine.remove_layer("toggle").unwrap();
 
-    // Straight back on, well inside the fade out. This is the case that used to
-    // be swallowed as a duplicate and leave the layer silent.
     add(0.5).unwrap();
     assert!(
         engine.active_sounds().contains(&"toggle".to_string()),

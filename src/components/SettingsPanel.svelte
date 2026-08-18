@@ -2,7 +2,8 @@
   import { nuru } from '$lib/store.svelte';
   import { api, IS_PREVIEW } from '$lib/bridge';
   import { VERSION, CHANNEL } from '$lib/version';
-  import Panel from './Panel.svelte';
+  import Drawer from './Drawer.svelte';
+  import { openUrl } from '$lib/bridge';
   import Icon from './Icon.svelte';
 
   const THEMES = [
@@ -19,12 +20,13 @@
   ] as const;
 
   let unshippable = $state<string[]>([]);
+  let checking = $state(false);
   $effect(() => {
     void api.unshippableSounds().then((ids) => (unshippable = ids));
   });
 </script>
 
-<Panel title="Settings" onclose={() => (nuru.activePanel = 'none')} width={400}>
+<Drawer title="Settings" onclose={() => (nuru.activePanel = 'none')} width={440}>
   <section>
     <h3>Theme</h3>
     <div class="themes">
@@ -61,7 +63,19 @@
   </section>
 
   <section>
-    <h3>Output device</h3>
+    <h3>Behaviour</h3>
+    <label class="toggle">
+      <input type="checkbox" bind:checked={nuru.restoreOnLaunch} />
+      <span class="track"><span class="knob"></span></span>
+      <span class="text">
+        Restore the last mix on launch
+        <em>Loads the sounds you had going, paused.</em>
+      </span>
+    </label>
+  </section>
+
+  <section>
+    <h3>Audio</h3>
     <div class="select">
       <select
         value={nuru.outputDevice ?? ''}
@@ -76,34 +90,75 @@
         {/each}
       </select>
     </div>
-    <p class="note">
-      Currently playing through {nuru.activeDevice || 'the system default'}. The choice is
-      remembered, and falls back to the default if the device is unplugged.
-    </p>
-  </section>
-
-  <section>
-    <h3>Behaviour</h3>
-    <label class="toggle">
-      <input type="checkbox" bind:checked={nuru.restoreOnLaunch} />
-      <span class="track"><span class="knob"></span></span>
-      <span class="text">
-        Restore the last mix on launch
-        <em>Loads the sounds you had going, paused.</em>
-      </span>
-    </label>
-  </section>
-
-  <section>
-    <h3>Audio</h3>
     <p class="line">
-      <span class="k">Output</span>
+      <span class="k">Playing through</span>
       <span class="v">{nuru.engineNote ?? '-'}</span>
     </p>
     <p class="note">
-      Every sound is decoded from a local lossless file and looped at an exact
-      sample boundary. Nothing streams from the network while it plays.
+      The choice is remembered and falls back to the system default if the device is
+      unplugged. Every sound is decoded from a local lossless file and looped at an
+      exact sample boundary, so nothing streams while it plays.
     </p>
+  </section>
+
+  <section>
+    <h3>Updates</h3>
+    {#if nuru.update?.available}
+      <div class="update ready">
+        <div class="urow">
+          <span class="uname">Nuru {nuru.update.available.version}</span>
+          <span class="usub">{nuru.update.available.title}</span>
+        </div>
+        <button class="u-pressable solid" onclick={() => nuru.installUpdate()}>
+          Update now
+        </button>
+      </div>
+      {#if nuru.update.available.notes}
+        <pre class="notes">{nuru.update.available.notes.slice(0, 600)}</pre>
+      {/if}
+    {:else}
+      <div class="update">
+        <div class="urow">
+          <span class="uname">Nuru {VERSION}</span>
+          <span class="usub">
+            {#if checking}
+              Checking...
+            {:else if nuru.update?.error}
+              {nuru.update.error}
+            {:else if nuru.update}
+              Up to date
+            {:else}
+              Not checked yet
+            {/if}
+          </span>
+        </div>
+        <button
+          class="u-pressable ghost-btn"
+          disabled={checking}
+          onclick={async () => {
+            checking = true;
+            await nuru.checkUpdate(false);
+            checking = false;
+          }}
+        >
+          Check for updates
+        </button>
+      </div>
+    {/if}
+  </section>
+
+  <section>
+    <h3>Links</h3>
+    <div class="links">
+      <button class="u-pressable link" onclick={() => openUrl('https://hexagonubi.github.io/Nuru-Audio-Player/')}>
+        <span class="lname">Website</span>
+        <span class="lsub">Downloads and news</span>
+      </button>
+      <button class="u-pressable link" onclick={() => openUrl('https://github.com/HexagonUBI/Nuru-Audio-Player')}>
+        <span class="lname">GitHub</span>
+        <span class="lsub">Source and releases</span>
+      </button>
+    </div>
   </section>
 
   {#if unshippable.length || IS_PREVIEW}
@@ -129,7 +184,7 @@
     <span class="u-numeric">Nuru {VERSION}</span>
     <span class="channel">{CHANNEL}</span>
   </footer>
-</Panel>
+</Drawer>
 
 <style>
   section {
@@ -246,6 +301,99 @@
   .select option {
     background: var(--s-700);
     color: var(--ink);
+  }
+
+  .update {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: 12px 14px;
+    border-radius: var(--r-md);
+    background: rgba(255, 255, 255, 0.04);
+    box-shadow: inset 0 0 0 1px var(--line-soft);
+  }
+  .update.ready {
+    background: var(--nuru-ghost);
+    box-shadow: inset 0 0 0 1px var(--nuru-dim);
+  }
+
+  .urow {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .uname {
+    font: var(--t-label);
+    color: var(--ink);
+  }
+
+  .usub {
+    font: var(--t-caption);
+    color: var(--ink-40);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ghost-btn {
+    padding: 8px 13px;
+    border-radius: var(--r-sm);
+    font: var(--t-label);
+    color: var(--ink-60);
+    background: rgba(255, 255, 255, 0.05);
+    white-space: nowrap;
+  }
+  .ghost-btn:hover:not(:disabled),
+  .ghost-btn:focus-visible:not(:disabled) {
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .notes {
+    margin-top: var(--sp-3);
+    padding: var(--sp-3);
+    max-height: 160px;
+    overflow: auto;
+    border-radius: var(--r-sm);
+    background: rgba(0, 0, 0, 0.24);
+    font: var(--t-caption);
+    font-family: var(--font-ui);
+    color: var(--ink-60);
+    white-space: pre-wrap;
+  }
+
+  .links {
+    display: grid;
+    gap: var(--sp-2);
+  }
+
+  .link {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 11px 14px;
+    border-radius: var(--r-md);
+    text-align: left;
+    background: rgba(255, 255, 255, 0.04);
+    box-shadow: inset 0 0 0 1px var(--line-soft);
+  }
+  .link:hover,
+  .link:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+  }
+
+  .lname {
+    font: var(--t-label);
+    color: var(--ink);
+  }
+
+  .lsub {
+    font: var(--t-caption);
+    color: var(--ink-40);
   }
 
   .toggle {

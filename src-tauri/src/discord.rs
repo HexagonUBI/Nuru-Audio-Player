@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crossbeam_channel::{bounded, Sender};
-use discord_rich_presence::activity::{Activity, Assets, Timestamps};
+use discord_rich_presence::activity::{Activity, ActivityType, Assets, Timestamps};
 use discord_rich_presence::{DiscordIpc, DiscordIpcClient};
 
 pub const APP_ID: &str = "1539058341353889883";
@@ -64,6 +64,7 @@ impl Presence {
 
                     let result = if wanted.active {
                         let mut activity = Activity::new()
+                            .activity_type(ActivityType::Listening)
                             .details(&wanted.details)
                             .state(&wanted.state)
                             .assets(Assets::new().large_image("nuru").large_text("Nuru"));

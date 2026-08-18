@@ -205,6 +205,93 @@ pub fn discord_now() -> i64 {
     crate::discord::now_secs()
 }
 
+
+#[tauri::command]
+pub async fn check_update() -> crate::updater::UpdateStatus {
+    crate::updater::check(crate::version::FULL).await
+}
+
+#[tauri::command]
+pub fn install_update(app: tauri::AppHandle) {
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let emit = |p: Progress| {
+            let _ = handle.emit(crate::updater::UPDATE_EVENT, p);
+        };
+
+        let current = crate::version::FULL.to_string();
+        emit(Progress::step("checking", "Looking for an update", 0.04));
+
+        let status = crate::updater::check(&current).await;
+        let Some(release) = status.available else {
+            emit(Progress {
+                phase: "error".into(),
+                label: String::new(),
+                progress: 0.0,
+                done: true,
+                error: Some(status.error.unwrap_or_else(|| "Nuru is already up to date".into())),
+            });
+            return;
+        };
+
+        emit(Progress::step("downloading", format!("Downloading {}", release.version), 0.08));
+
+        let handle_dl = handle.clone();
+        let version = release.version.clone();
+        let downloaded = crate::updater::download(&release, move |got, total| {
+            let frac = if total == 0 { 0.0 } else { got as f32 / total as f32 };
+            let _ = handle_dl.emit(
+                crate::updater::UPDATE_EVENT,
+                Progress::step(
+                    "downloading",
+                    format!("Downloading {version}"),
+                    0.08 + frac * 0.74,
+                ),
+            );
+        })
+        .await;
+
+        let path = match downloaded {
+            Ok(p) => p,
+            Err(e) => {
+                emit(Progress {
+                    phase: "error".into(),
+                    label: String::new(),
+                    progress: 0.0,
+                    done: true,
+                    error: Some(format!("{e:#}")),
+                });
+                return;
+            }
+        };
+
+        emit(Progress::step("installing", "Starting the installer", 0.9));
+
+        if let Err(e) = crate::updater::install(&path) {
+            emit(Progress {
+                phase: "error".into(),
+                label: String::new(),
+                progress: 0.0,
+                done: true,
+                error: Some(format!("{e:#}")),
+            });
+            return;
+        }
+
+        emit(Progress::step("restarting", "Nuru will reopen in a moment", 1.0));
+        std::thread::sleep(crate::updater::quit_delay());
+        handle.exit(0);
+    });
+}
+
+#[tauri::command]
+pub fn open_release_page(app: tauri::AppHandle, url: String) {
+    if url.starts_with("https://github.com/") {
+        let _ = tauri_plugin_opener::open_url(url, None::<&str>);
+    }
+    let _ = app;
+}
+
 #[tauri::command]
 pub fn unshippable_sounds(state: State<'_, AppState>) -> Vec<String> {
     state.library.unshippable()

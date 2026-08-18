@@ -54,6 +54,13 @@ conf.bundle.windows.wix.version = full;
 write('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
 
 write(
+  'src-tauri/src/version.rs',
+  `pub const FULL: &str = "${full}";
+pub const CHANNEL: &str = "${channel}";
+`,
+);
+
+write(
   'src/lib/version.ts',
   `export const VERSION = '${full}';
 export const VERSION_SEMVER = '${semver}';

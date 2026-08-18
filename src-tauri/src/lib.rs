@@ -4,6 +4,8 @@ pub mod discord;
 pub mod library;
 pub mod model;
 pub mod settings;
+pub mod updater;
+pub mod version;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
@@ -146,6 +148,9 @@ pub fn run() {
             commands::engine_status,
             commands::list_output_devices,
             commands::set_output_device,
+            commands::check_update,
+            commands::install_update,
+            commands::open_release_page,
             commands::set_presence,
             commands::discord_now,
             commands::unshippable_sounds,

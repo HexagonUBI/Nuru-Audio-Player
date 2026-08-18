@@ -18,7 +18,7 @@
   >
     <div class="middle">
       <div class="mark"><NuruMark size={64} pulse /></div>
-      <h1>Nuru</h1>
+      <h1>{boot.mode === 'update' ? 'Updating Nuru' : 'Nuru'}</h1>
       <p class="line">{boot.line}</p>
 
       <div class="bar" aria-hidden="true">

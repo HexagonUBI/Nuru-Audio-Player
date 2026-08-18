@@ -63,7 +63,7 @@
     "longDescription": "Nuru plays any combination of ambient sounds together, each seamlessly looped and mixed locally. Save the mixes you like, set a sleep timer, and drop into a full-screen nook that changes with what you are listening to.",
     "windows": {
       "wix": {
-        "version": "0.0.0.0",
+        "version": "0.0.0.1",
         "language": [
           "en-US"
         ]

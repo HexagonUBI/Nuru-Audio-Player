@@ -32,3 +32,6 @@ src-tauri/gen/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Local test builds kept side by side for update testing.
+/release/

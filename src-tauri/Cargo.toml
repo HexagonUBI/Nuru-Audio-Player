@@ -18,8 +18,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 # scripts/patch-version-resource.mjs restamps the exe after linking and before
 # bundling, and that is what actually lands. Kept in step by sync-version.mjs.
 [package.metadata.winresource]
-FileVersion = "0.0.0.0"
-ProductVersion = "0.0.0.0"
+FileVersion = "0.0.0.1"
+ProductVersion = "0.0.0.1"
 ProductName = "Nuru"
 CompanyName = "SimpleFox"
 FileDescription = "Nuru - ambient sound mixer"
@@ -75,6 +75,9 @@ hex = "0.4"
 log = "0.4"
 tauri-plugin-log = "2"
 discord-rich-presence = "1.1.0"
+futures-util = "0.3.34"
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
+url = "2.5.8"
 
 [features]
 # Tauri's own default; kept explicit so `cargo build --no-default-features`
