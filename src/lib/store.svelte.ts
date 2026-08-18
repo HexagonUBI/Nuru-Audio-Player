@@ -1,13 +1,12 @@
 
 
-import { api, onProgress, BOOT_EVENT, UPDATE_EVENT, type Progress, type UpdateStatus } from './bridge';
+import { api, onProgress, BOOT_EVENT, UPDATE_EVENT, type Progress, type UpdateStatus, type ReleaseInfo } from './bridge';
 import { randomAccent, randomLine } from './splash';
 import { presenceFor } from './presence';
 import type { Layer, Preset, SoundEntry, TimerState } from './types';
 
 const STORAGE_KEY = 'nuru.state.v1';
 const PRESET_KEY = 'nuru.presets.v1';
-
 
 const MIN_BOOT_MS = 1100;
 
@@ -76,7 +75,6 @@ class NuruStore {
   outputDevice = $state<string | null>(null);
   activeDevice = $state('');
 
-
   boot = $state({
     visible: true,
     mode: 'startup' as 'startup' | 'update',
@@ -93,7 +91,6 @@ class NuruStore {
   timer = $state<TimerState>({ kind: 'off' });
   timerRemainingMs = $state(0);
 
-
   filter = $state<string>('');
   search = $state('');
 
@@ -105,8 +102,6 @@ class NuruStore {
 
   loading = $state(true);
   engineNote = $state<string | null>(null);
-
-
 
   byId = $derived(new Map(this.sounds.map((s) => [s.id, s])));
 
@@ -139,8 +134,6 @@ class NuruStore {
       .sort((a, b) => (a[0] === 'Built-in' ? -1 : b[0] === 'Built-in' ? 1 : a[0].localeCompare(b[0])))
       .map(([name, sounds]) => ({ name, sounds }));
   });
-
-
 
   scene = $derived.by(() => {
     let rain = 0;
@@ -193,8 +186,6 @@ class NuruStore {
       hearthKind: pick.get('hearth')?.state ?? null,
     };
   });
-
-
 
   async init() {
     document.documentElement.dataset.theme = this.theme;
@@ -252,9 +243,16 @@ class NuruStore {
     if (held < MIN_BOOT_MS) {
       await new Promise((r) => setTimeout(r, MIN_BOOT_MS - held));
     }
-    this.boot = { ...this.boot, progress: 1, visible: false };
+    this.boot = { ...this.boot, progress: 1, visible: false, mode: 'startup' };
 
-    void this.checkUpdate().catch(() => {});
+    await this.loadAutoUpdate();
+    void this.showChangelogIfNew().catch(() => {});
+
+    void this.checkUpdate()
+      .then((status) => {
+        if (status.available && this.autoUpdate) void this.installUpdate();
+      })
+      .catch(() => {});
   }
 
   private presenceStartedAt: number | null = null;
@@ -276,13 +274,34 @@ class NuruStore {
 
   update = $state<UpdateStatus | null>(null);
   updateBusy = $state(false);
+  autoUpdate = $state(true);
+  changelog = $state<ReleaseInfo | null>(null);
+
+  async loadAutoUpdate() {
+    this.autoUpdate = await api.getAutoUpdate();
+  }
+
+  async setAutoUpdate(enabled: boolean) {
+    this.autoUpdate = enabled;
+    await api.setAutoUpdate(enabled);
+  }
+
+  dismissChangelog() {
+    this.changelog = null;
+    void api.markChangelogSeen();
+  }
+
+  private async showChangelogIfNew() {
+    const release = await api.pendingChangelog();
+    if (release) this.changelog = release;
+  }
 
   async checkUpdate(quiet = true) {
     const status = await api.checkUpdate();
     this.update = status;
     if (!quiet) {
       if (status.available) this.toast(`Nuru ${status.available.version} is available`);
-      else if (status.error) this.toast(status.error, 'error');
+      else if (status.errorMessage) this.toast(status.errorMessage, 'error');
       else this.toast('Nuru is up to date');
     }
     return status;
@@ -362,8 +381,6 @@ class NuruStore {
     } satisfies Persisted);
   }
 
-
-
   toast(text: string, tone: 'info' | 'error' = 'info') {
     const id = ++this.nextToast;
     this.toasts = [...this.toasts, { id, text, tone }];
@@ -371,8 +388,6 @@ class NuruStore {
       this.toasts = this.toasts.filter((t) => t.id !== id);
     }, tone === 'error' ? 6000 : 3200);
   }
-
-
 
   async toggle(soundId: string) {
     if (this.activeIds.has(soundId)) await this.remove(soundId);
@@ -442,8 +457,6 @@ class NuruStore {
     this.pushPresence();
   }
 
-
-
   savePreset(name: string) {
     const trimmed = name.trim();
     if (!trimmed || !this.layers.length) return;
@@ -472,8 +485,6 @@ class NuruStore {
     for (const l of preset.layers) await this.add(l.soundId, l.volume);
     this.toast(`Loaded "${preset.name}"`);
   }
-
-
 
   private timerHandle: ReturnType<typeof setInterval> | null = null;
 
@@ -504,8 +515,6 @@ class NuruStore {
     if (this.timer.kind === 'running') this.timer = { kind: 'off' };
     this.timerRemainingMs = 0;
   }
-
-
 
   setTheme(theme: string) {
     this.theme = theme;

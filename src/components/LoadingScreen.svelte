@@ -6,6 +6,28 @@
   const boot = $derived(nuru.boot);
 
   const shown = $derived(Math.round(boot.progress * 100));
+
+  const STEPS = [
+    { id: 'download', order: 0, label: 'Download' },
+    { id: 'install', order: 1, label: 'Install' },
+    { id: 'restart', order: 2, label: 'Restart' },
+  ];
+
+  const stepIndex = $derived.by(() => {
+    switch (boot.phase) {
+      case 'checking':
+      case 'downloading':
+        return 0;
+      case 'installing':
+        return 1;
+      case 'restarting':
+        return 2;
+      case 'finishing':
+        return 3;
+      default:
+        return 0;
+    }
+  });
 </script>
 
 {#if boot.visible}
@@ -24,6 +46,16 @@
       <div class="bar" aria-hidden="true">
         <div class="fill" style:width="{shown}%"></div>
       </div>
+
+      {#if boot.mode === 'update'}
+        <ol class="steps" aria-hidden="true">
+          {#each STEPS as step (step.id)}
+            <li class:done={stepIndex > step.order} class:now={stepIndex === step.order}>
+              {step.label}
+            </li>
+          {/each}
+        </ol>
+      {/if}
 
       <p class="detail">
         {#if boot.error}
@@ -107,6 +139,33 @@
     background: var(--accent);
     box-shadow: 0 0 16px -2px var(--accent);
     transition: width var(--dur-4) var(--ease-out);
+  }
+
+  .steps {
+    display: flex;
+    gap: var(--sp-4);
+    margin-top: var(--sp-4);
+    font: var(--t-caption);
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+    color: var(--ink-25);
+  }
+
+  .steps li {
+    position: relative;
+    transition: color var(--dur-3) var(--ease-out);
+  }
+
+  .steps li.now {
+    color: var(--accent);
+  }
+
+  .steps li.done {
+    color: var(--ink-60);
+  }
+
+  .steps li.done::after {
+    content: '';
   }
 
   .detail {

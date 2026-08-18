@@ -47,10 +47,6 @@ write(
 
 const conf = JSON.parse(read('src-tauri/tauri.conf.json'));
 conf.version = semver;
-conf.bundle ??= {};
-conf.bundle.windows ??= {};
-conf.bundle.windows.wix ??= {};
-conf.bundle.windows.wix.version = full;
 write('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
 
 write(

@@ -3,6 +3,7 @@
   import { api, IS_PREVIEW } from '$lib/bridge';
   import { VERSION, CHANNEL } from '$lib/version';
   import Drawer from './Drawer.svelte';
+  import Markdown from './Markdown.svelte';
   import { openUrl } from '$lib/bridge';
   import Icon from './Icon.svelte';
 
@@ -114,7 +115,9 @@
         </button>
       </div>
       {#if nuru.update.available.notes}
-        <pre class="notes">{nuru.update.available.notes.slice(0, 600)}</pre>
+        <div class="notes">
+          <Markdown source={nuru.update.available.notes} />
+        </div>
       {/if}
     {:else}
       <div class="update">
@@ -123,8 +126,8 @@
           <span class="usub">
             {#if checking}
               Checking...
-            {:else if nuru.update?.error}
-              {nuru.update.error}
+            {:else if nuru.update?.errorMessage}
+              {nuru.update.errorMessage}
             {:else if nuru.update}
               Up to date
             {:else}
@@ -145,6 +148,19 @@
         </button>
       </div>
     {/if}
+
+    <label class="toggle auto">
+      <input
+        type="checkbox"
+        checked={nuru.autoUpdate}
+        onchange={(e) => nuru.setAutoUpdate((e.currentTarget as HTMLInputElement).checked)}
+      />
+      <span class="track"><span class="knob"></span></span>
+      <span class="text">
+        Install updates automatically
+        <em>Nuru updates itself on launch, without asking.</em>
+      </span>
+    </label>
   </section>
 
   <section>
@@ -352,17 +368,17 @@
     background: rgba(255, 255, 255, 0.1);
   }
 
+  .toggle.auto {
+    margin-top: var(--sp-4);
+  }
+
   .notes {
     margin-top: var(--sp-3);
     padding: var(--sp-3);
-    max-height: 160px;
+    max-height: 220px;
     overflow: auto;
     border-radius: var(--r-sm);
     background: rgba(0, 0, 0, 0.24);
-    font: var(--t-caption);
-    font-family: var(--font-ui);
-    color: var(--ink-60);
-    white-space: pre-wrap;
   }
 
   .links {

@@ -207,30 +207,54 @@ pub fn discord_now() -> i64 {
 
 
 #[tauri::command]
-pub async fn check_update() -> crate::updater::UpdateStatus {
-    crate::updater::check(crate::version::FULL).await
+pub async fn check_update(app: tauri::AppHandle) -> crate::updater::UpdateStatus {
+    let dir = app.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let status = crate::updater::check(&dir, crate::version::FULL).await;
+    match (&status.available, &status.error) {
+        (Some(r), _) => log::info!(
+            "update available: {} (running {}, source {})",
+            r.version,
+            status.current_version,
+            status.channel
+        ),
+        (None, Some(e)) => log::info!("update check: {}", e.message()),
+        (None, None) => log::info!("up to date at {}", status.current_version),
+    }
+    status
 }
 
 #[tauri::command]
 pub fn install_update(app: tauri::AppHandle) {
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
+        let dir = handle
+            .path()
+            .app_data_dir()
+            .unwrap_or_else(|_| std::path::PathBuf::from("."));
+
+        let fail = |handle: &tauri::AppHandle, e: crate::updater::UpdateError| {
+            log::error!("update failed: {}", e.message());
+            let _ = handle.emit(
+                crate::updater::UPDATE_EVENT,
+                Progress {
+                    phase: "error".into(),
+                    label: String::new(),
+                    progress: 0.0,
+                    done: true,
+                    error: Some(e.message().to_string()),
+                },
+            );
+        };
+
         let emit = |p: Progress| {
             let _ = handle.emit(crate::updater::UPDATE_EVENT, p);
         };
 
-        let current = crate::version::FULL.to_string();
         emit(Progress::step("checking", "Looking for an update", 0.04));
 
-        let status = crate::updater::check(&current).await;
+        let status = crate::updater::check(&dir, crate::version::FULL).await;
         let Some(release) = status.available else {
-            emit(Progress {
-                phase: "error".into(),
-                label: String::new(),
-                progress: 0.0,
-                done: true,
-                error: Some(status.error.unwrap_or_else(|| "Nuru is already up to date".into())),
-            });
+            fail(&handle, status.error.unwrap_or(crate::updater::UpdateError::NotPublished));
             return;
         };
 
@@ -253,35 +277,54 @@ pub fn install_update(app: tauri::AppHandle) {
 
         let path = match downloaded {
             Ok(p) => p,
-            Err(e) => {
-                emit(Progress {
-                    phase: "error".into(),
-                    label: String::new(),
-                    progress: 0.0,
-                    done: true,
-                    error: Some(format!("{e:#}")),
-                });
-                return;
-            }
+            Err(e) => return fail(&handle, e),
         };
 
-        emit(Progress::step("installing", "Starting the installer", 0.9));
+        emit(Progress::step("installing", "Installing", 0.9));
+        log::info!("running installer {}", path.display());
 
         if let Err(e) = crate::updater::install(&path) {
-            emit(Progress {
-                phase: "error".into(),
-                label: String::new(),
-                progress: 0.0,
-                done: true,
-                error: Some(format!("{e:#}")),
-            });
-            return;
+            return fail(&handle, e);
         }
 
-        emit(Progress::step("restarting", "Nuru will reopen in a moment", 1.0));
+        emit(Progress::step("restarting", "Restarting Nuru", 1.0));
         std::thread::sleep(crate::updater::quit_delay());
         handle.exit(0);
     });
+}
+
+#[tauri::command]
+pub async fn release_notes(app: tauri::AppHandle, version: String) -> Option<crate::updater::ReleaseInfo> {
+    let dir = app.path().app_data_dir().ok()?;
+    crate::updater::notes_for(&dir, &version).await
+}
+
+#[tauri::command]
+pub fn pending_changelog(app: tauri::AppHandle) -> Option<crate::updater::ReleaseInfo> {
+    let dir = app.path().app_data_dir().ok()?;
+    let found = crate::updater::pending_changelog(&dir, crate::version::FULL);
+    if let Some(r) = &found {
+        log::info!("showing the changelog for {}", r.version);
+    }
+    found
+}
+
+#[tauri::command]
+pub fn mark_changelog_seen(app: tauri::AppHandle) {
+    if let Ok(dir) = app.path().app_data_dir() {
+        crate::updater::mark_seen(&dir, crate::version::FULL);
+    }
+}
+
+#[tauri::command]
+pub fn get_auto_update(state: State<'_, AppState>) -> bool {
+    state.settings.get().auto_update
+}
+
+#[tauri::command]
+pub fn set_auto_update(state: State<'_, AppState>, enabled: bool) {
+    state.settings.update(|s| s.auto_update = enabled);
+    log::info!("automatic updates {}", if enabled { "enabled" } else { "disabled" });
 }
 
 #[tauri::command]

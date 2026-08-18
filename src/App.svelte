@@ -8,6 +8,7 @@
   import SettingsPanel from './components/SettingsPanel.svelte';
   import NookMode from './components/NookMode.svelte';
   import LoadingScreen from './components/LoadingScreen.svelte';
+  import ChangelogPanel from './components/ChangelogPanel.svelte';
   import Toasts from './components/Toasts.svelte';
 
   $effect(() => {
@@ -59,6 +60,8 @@
 {#if nuru.nookMode}
   <NookMode />
 {/if}
+
+<ChangelogPanel />
 
 <Toasts />
 <LoadingScreen />

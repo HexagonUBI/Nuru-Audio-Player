@@ -28,8 +28,9 @@ export interface ReleaseInfo {
 export interface UpdateStatus {
   currentVersion: string;
   available: ReleaseInfo | null;
-  checkedIso: string;
+  checked: number;
   error: string | null;
+  errorMessage: string | null;
   channel: string;
 }
 
@@ -220,8 +221,9 @@ export const api = {
       return {
         currentVersion: '0.0.0.0',
         available: null,
-        checkedIso: '',
-        error: 'Updates are not available in preview',
+        checked: 0,
+        error: null,
+        errorMessage: 'Updates are not available in preview',
         channel: 'preview',
       };
     }
@@ -231,6 +233,31 @@ export const api = {
   async installUpdate(): Promise<void> {
     if (IS_PREVIEW) return;
     return invoke('install_update');
+  },
+
+  async pendingChangelog(): Promise<ReleaseInfo | null> {
+    if (IS_PREVIEW) return null;
+    return invoke<ReleaseInfo | null>('pending_changelog');
+  },
+
+  async markChangelogSeen(): Promise<void> {
+    if (IS_PREVIEW) return;
+    return invoke('mark_changelog_seen');
+  },
+
+  async releaseNotes(version: string): Promise<ReleaseInfo | null> {
+    if (IS_PREVIEW) return null;
+    return invoke<ReleaseInfo | null>('release_notes', { version });
+  },
+
+  async getAutoUpdate(): Promise<boolean> {
+    if (IS_PREVIEW) return true;
+    return invoke<boolean>('get_auto_update');
+  },
+
+  async setAutoUpdate(enabled: boolean): Promise<void> {
+    if (IS_PREVIEW) return;
+    return invoke('set_auto_update', { enabled });
   },
 
   async unshippableSounds(): Promise<string[]> {

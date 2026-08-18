@@ -1,7 +1,7 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +12,8 @@ const API_ROOT: &str = "https://api.github.com";
 const CHECK_TIMEOUT: Duration = Duration::from_secs(15);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(900);
 const QUIT_DELAY: Duration = Duration::from_millis(900);
+const MAX_NOTES_CHARS: usize = 24_000;
+const MAX_REMEMBERED: usize = 8;
 
 const ALLOWED_HOSTS: [&str; 3] = [
     "github.com",
@@ -19,7 +21,33 @@ const ALLOWED_HOSTS: [&str; 3] = [
     "release-assets.githubusercontent.com",
 ];
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum UpdateError {
+    NotPublished,
+    Offline,
+    RateLimited,
+    NoAsset,
+    DownloadFailed,
+    VerifyFailed,
+    LaunchFailed,
+}
+
+impl UpdateError {
+    pub fn message(self) -> &'static str {
+        match self {
+            Self::NotPublished => "No release has been published yet",
+            Self::Offline => "Could not reach GitHub",
+            Self::RateLimited => "GitHub is rate limiting, try again later",
+            Self::NoAsset => "That release has no installer attached",
+            Self::DownloadFailed => "The download did not finish",
+            Self::VerifyFailed => "The downloaded file did not match the release",
+            Self::LaunchFailed => "The installer could not be started",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ReleaseInfo {
     pub version: String,
@@ -37,9 +65,18 @@ pub struct ReleaseInfo {
 pub struct UpdateStatus {
     pub current_version: String,
     pub available: Option<ReleaseInfo>,
-    pub checked_iso: String,
-    pub error: Option<String>,
+    pub checked: u64,
+    pub error: Option<UpdateError>,
+    pub error_message: Option<String>,
     pub channel: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+struct UpdateState {
+    seen_version: Option<String>,
+    last_check: Option<u64>,
+    releases: Vec<ReleaseInfo>,
 }
 
 pub fn repo_slug() -> String {
@@ -55,6 +92,13 @@ pub fn channel() -> &'static str {
     } else {
         "installer"
     }
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
 fn parse_version(value: &str) -> Vec<u64> {
@@ -94,24 +138,61 @@ fn client() -> Result<reqwest::Client> {
         .context("building the http client")
 }
 
+fn state_path(app_data: &Path) -> PathBuf {
+    app_data.join("updates.json")
+}
+
+fn read_state(app_data: &Path) -> UpdateState {
+    std::fs::read_to_string(state_path(app_data))
+        .ok()
+        .and_then(|raw| serde_json::from_str(raw.trim_start_matches('\u{feff}')).ok())
+        .unwrap_or_default()
+}
+
+fn write_state(app_data: &Path, state: &UpdateState) {
+    let _ = std::fs::create_dir_all(app_data);
+    if let Ok(json) = serde_json::to_string_pretty(state) {
+        let _ = std::fs::write(state_path(app_data), json);
+    }
+}
+
+fn remember_release(app_data: &Path, release: &ReleaseInfo) {
+    let mut state = read_state(app_data);
+    state.releases.retain(|r| r.version != release.version);
+    state.releases.insert(0, release.clone());
+    state.releases.truncate(MAX_REMEMBERED);
+    write_state(app_data, &state);
+}
+
+pub fn mark_seen(app_data: &Path, version: &str) {
+    let mut state = read_state(app_data);
+    state.seen_version = Some(version.to_string());
+    write_state(app_data, &state);
+}
+
+pub fn pending_changelog(app_data: &Path, current: &str) -> Option<ReleaseInfo> {
+    let state = read_state(app_data);
+    match state.seen_version.as_deref() {
+        None => {
+            mark_seen(app_data, current);
+            None
+        }
+        Some(seen) if seen == current => None,
+        Some(_) => state.releases.iter().find(|r| r.version == current).cloned(),
+    }
+}
+
 fn pick_installer(assets: &serde_json::Value) -> Option<(String, u64)> {
     let list = assets.as_array()?;
-    let mut msi = None;
-    let mut nsis = None;
     for a in list {
         let name = a.get("name").and_then(|v| v.as_str())?.to_lowercase();
         let url = a.get("browser_download_url").and_then(|v| v.as_str())?.to_string();
         let size = a.get("size").and_then(|s| s.as_u64()).unwrap_or(0);
-        if !allowed(&url) {
-            continue;
-        }
-        if name.ends_with(".msi") {
-            msi = Some((url, size));
-        } else if name.ends_with("setup.exe") {
-            nsis = Some((url, size));
+        if allowed(&url) && name.ends_with("setup.exe") {
+            return Some((url, size));
         }
     }
-    msi.or(nsis)
+    None
 }
 
 fn read_release(raw: &serde_json::Value) -> Option<ReleaseInfo> {
@@ -130,7 +211,7 @@ fn read_release(raw: &serde_json::Value) -> Option<ReleaseInfo> {
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .chars()
-            .take(24_000)
+            .take(MAX_NOTES_CHARS)
             .collect(),
         published_iso: raw.get("published_at").and_then(|v| v.as_str()).map(String::from),
         html_url: raw
@@ -148,74 +229,93 @@ fn read_release(raw: &serde_json::Value) -> Option<ReleaseInfo> {
 
 fn local_feed() -> Option<ReleaseInfo> {
     let path = std::env::var("NURU_UPDATE_FEED").ok()?;
-    let raw = std::fs::read_to_string(path).ok()?;
-    serde_json::from_str::<ReleaseInfo>(&raw).ok()
+    let raw = std::fs::read_to_string(&path).ok()?;
+    match serde_json::from_str::<ReleaseInfo>(raw.trim_start_matches('\u{feff}')) {
+        Ok(r) => {
+            log::info!("using the local update feed at {path}");
+            Some(r)
+        }
+        Err(e) => {
+            log::warn!("NURU_UPDATE_FEED at {path} is not a usable release: {e}");
+            None
+        }
+    }
 }
 
-pub async fn check(current_version: &str) -> UpdateStatus {
-    let checked_iso = now_secs().to_string();
+async fn fetch(path: &str) -> Result<ReleaseInfo, UpdateError> {
+    let url = format!("{API_ROOT}/repos/{}/{path}", repo_slug());
+    let c = client().map_err(|_| UpdateError::Offline)?;
+    let res = c
+        .get(&url)
+        .header("Accept", "application/vnd.github+json")
+        .timeout(CHECK_TIMEOUT)
+        .send()
+        .await
+        .map_err(|_| UpdateError::Offline)?;
 
-    if let Some(release) = local_feed() {
-        let newer = compare_versions(&release.version, current_version) == std::cmp::Ordering::Greater;
+    match res.status().as_u16() {
+        200 => {}
+        404 => return Err(UpdateError::NotPublished),
+        403 | 429 => return Err(UpdateError::RateLimited),
+        _ => return Err(UpdateError::Offline),
+    }
+
+    let body: serde_json::Value = res.json().await.map_err(|_| UpdateError::Offline)?;
+    read_release(&body).ok_or(UpdateError::NotPublished)
+}
+
+pub async fn check(app_data: &Path, current_version: &str) -> UpdateStatus {
+    let checked = now_secs();
+
+    let (release, error) = match local_feed() {
+        Some(r) => (Some(r), None),
+        None => match fetch("releases/latest").await {
+            Ok(r) => (Some(r), None),
+            Err(e) => (None, Some(e)),
+        },
+    };
+
+    let mut state = read_state(app_data);
+    state.last_check = Some(checked);
+    write_state(app_data, &state);
+
+    let Some(release) = release else {
+        let e = error.unwrap_or(UpdateError::Offline);
         return UpdateStatus {
             current_version: current_version.to_string(),
-            available: if newer { Some(release) } else { None },
-            checked_iso,
-            error: None,
-            channel: "local-feed".into(),
-        };
-    }
-
-    let url = format!("{API_ROOT}/repos/{}/releases/latest", repo_slug());
-    let fetched = async {
-        let c = client()?;
-        let res = c
-            .get(&url)
-            .header("Accept", "application/vnd.github+json")
-            .timeout(CHECK_TIMEOUT)
-            .send()
-            .await?;
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(anyhow!("No release has been published yet"));
-        }
-        if res.status() == reqwest::StatusCode::FORBIDDEN {
-            return Err(anyhow!("GitHub is rate limiting, try again later"));
-        }
-        if !res.status().is_success() {
-            return Err(anyhow!("GitHub returned {}", res.status()));
-        }
-        let body: serde_json::Value = res.json().await?;
-        read_release(&body).ok_or_else(|| anyhow!("release payload was not usable"))
-    }
-    .await;
-
-    match fetched {
-        Ok(release) => {
-            let newer =
-                compare_versions(&release.version, current_version) == std::cmp::Ordering::Greater;
-            UpdateStatus {
-                current_version: current_version.to_string(),
-                available: if newer { Some(release) } else { None },
-                checked_iso,
-                error: None,
-                channel: channel().into(),
-            }
-        }
-        Err(e) => UpdateStatus {
-            current_version: current_version.to_string(),
             available: None,
-            checked_iso,
-            error: Some(format!("{e:#}")),
+            checked,
+            error: Some(e),
+            error_message: Some(e.message().to_string()),
             channel: channel().into(),
-        },
+        };
+    };
+
+    remember_release(app_data, &release);
+
+    let newer = compare_versions(&release.version, current_version) == std::cmp::Ordering::Greater;
+    UpdateStatus {
+        current_version: current_version.to_string(),
+        available: if newer { Some(release) } else { None },
+        checked,
+        error: None,
+        error_message: None,
+        channel: channel().into(),
     }
 }
 
-fn now_secs() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+pub async fn notes_for(app_data: &Path, version: &str) -> Option<ReleaseInfo> {
+    let state = read_state(app_data);
+    if let Some(found) = state.releases.iter().find(|r| r.version == version) {
+        return Some(found.clone());
+    }
+    for tag in [format!("v{version}"), version.to_string()] {
+        if let Ok(release) = fetch(&format!("releases/tags/{tag}")).await {
+            remember_release(app_data, &release);
+            return Some(release);
+        }
+    }
+    None
 }
 
 fn download_dir() -> PathBuf {
@@ -223,26 +323,23 @@ fn download_dir() -> PathBuf {
 }
 
 fn file_name_for(url: &str) -> String {
-    let raw = url.rsplit('/').next().unwrap_or("update.msi");
-    raw.chars()
-        .map(|c| {
-            if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect()
+    let raw = url.rsplit('/').next().unwrap_or("nuru-setup.exe");
+    let safe: String = raw
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' { c } else { '_' })
+        .collect();
+    if safe.to_lowercase().ends_with(".exe") {
+        safe
+    } else {
+        format!("{safe}.exe")
+    }
 }
 
-pub async fn download<F>(release: &ReleaseInfo, mut on_progress: F) -> Result<PathBuf>
+pub async fn download<F>(release: &ReleaseInfo, mut on_progress: F) -> Result<PathBuf, UpdateError>
 where
     F: FnMut(u64, u64) + Send,
 {
-    let url = release
-        .download_url
-        .as_ref()
-        .ok_or_else(|| anyhow!("this release has no installer attached"))?;
+    let url = release.download_url.as_ref().ok_or(UpdateError::NoAsset)?;
 
     if !url.starts_with("https://") {
         let path = PathBuf::from(url);
@@ -251,60 +348,71 @@ where
             on_progress(size, size);
             return Ok(path);
         }
-        return Err(anyhow!("local update file {} is missing", path.display()));
+        return Err(UpdateError::NoAsset);
     }
 
     if !allowed(url) {
-        return Err(anyhow!("refusing to download from {url}"));
+        return Err(UpdateError::NoAsset);
     }
 
     let dir = download_dir();
     let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).context("creating the download directory")?;
+    std::fs::create_dir_all(&dir).map_err(|_| UpdateError::DownloadFailed)?;
     let target = dir.join(file_name_for(url));
 
-    let c = client()?;
-    let res = c.get(url).timeout(DOWNLOAD_TIMEOUT).send().await?;
+    let c = client().map_err(|_| UpdateError::Offline)?;
+    let res = c
+        .get(url)
+        .timeout(DOWNLOAD_TIMEOUT)
+        .send()
+        .await
+        .map_err(|_| UpdateError::DownloadFailed)?;
     if !res.status().is_success() {
-        return Err(anyhow!("download returned {}", res.status()));
+        return Err(UpdateError::DownloadFailed);
     }
 
     let total = res.content_length().or(release.download_size_bytes).unwrap_or(0);
-
-    let mut file = std::fs::File::create(&target).context("creating the download file")?;
+    let mut file = std::fs::File::create(&target).map_err(|_| UpdateError::DownloadFailed)?;
     let mut received: u64 = 0;
     let mut stream = res.bytes_stream();
 
     while let Some(chunk) = stream.next().await {
-        let chunk = chunk?;
+        let chunk = chunk.map_err(|_| UpdateError::DownloadFailed)?;
         received += chunk.len() as u64;
-        std::io::Write::write_all(&mut file, &chunk)?;
+        std::io::Write::write_all(&mut file, &chunk).map_err(|_| UpdateError::DownloadFailed)?;
         on_progress(received, total);
     }
     drop(file);
 
     if let Some(expected) = release.download_size_bytes {
         if expected > 0 && received != expected {
-            return Err(anyhow!("downloaded {received} bytes, the release says {expected}"));
+            log::error!("downloaded {received} bytes, the release says {expected}");
+            return Err(UpdateError::VerifyFailed);
         }
     }
 
     Ok(target)
 }
 
-pub fn install(path: &PathBuf) -> Result<()> {
-    let name = path.to_string_lossy().to_lowercase();
-    let mut cmd = if name.ends_with(".msi") {
-        let mut c = std::process::Command::new("msiexec");
-        c.arg("/i").arg(path).arg("/qb").arg("/norestart");
-        c
-    } else {
-        let mut c = std::process::Command::new(path);
-        c.arg("/S");
-        c
-    };
-    cmd.spawn().context("starting the installer")?;
-    Ok(())
+pub fn install(path: &Path) -> Result<(), UpdateError> {
+    let mut cmd = std::process::Command::new(path);
+    cmd.arg("/S").arg("/R").arg("/UPDATE");
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        cmd.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+    }
+
+    match cmd.spawn() {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            log::error!("could not start {}: {e}", path.display());
+            Err(UpdateError::LaunchFailed)
+        }
+    }
 }
 
 pub fn quit_delay() -> Duration {

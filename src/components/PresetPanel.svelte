@@ -3,7 +3,7 @@
   import { cubicOut } from 'svelte/easing';
 
   import { nuru } from '$lib/store.svelte';
-  import Panel from './Panel.svelte';
+  import Drawer from './Drawer.svelte';
   import Icon from './Icon.svelte';
 
   let name = $state('');
@@ -24,7 +24,7 @@
   }
 </script>
 
-<Panel title="Mixes" onclose={() => (nuru.activePanel = 'none')} width={400}>
+<Drawer title="Mixes" onclose={() => (nuru.activePanel = 'none')} width={420}>
   <div class="save">
     <input
       type="text"
@@ -79,7 +79,7 @@
       here next time.
     </p>
   {/if}
-</Panel>
+</Drawer>
 
 <style>
   .save {

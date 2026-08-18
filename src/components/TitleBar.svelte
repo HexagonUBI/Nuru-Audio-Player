@@ -49,7 +49,7 @@
         onclick={() => (nuru.activePanel = 'settings')}
         title="Nuru {nuru.update.available.version} is available"
       >
-        Update
+        <span class="pill-text">Update</span>
       </button>
     {/if}
     {#if timerLabel}
@@ -199,6 +199,11 @@
     border-radius: var(--r-pill);
     font: var(--t-caption);
   }
+  .pill-text {
+    position: relative;
+    top: 2px;
+  }
+
   .pill.update {
     color: var(--ink-inverse);
     background: var(--nuru);

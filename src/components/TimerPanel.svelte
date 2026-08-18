@@ -1,6 +1,6 @@
 <script lang="ts">
   import { nuru } from '$lib/store.svelte';
-  import Panel from './Panel.svelte';
+  import Drawer from './Drawer.svelte';
 
   const PRESETS = [10, 20, 30, 45, 60, 90, 120];
 
@@ -23,7 +23,7 @@
   );
 </script>
 
-<Panel title="Sleep timer" onclose={() => (nuru.activePanel = 'none')} width={340}>
+<Drawer title="Sleep timer" onclose={() => (nuru.activePanel = 'none')} width={380}>
   {#if running}
     <div class="running">
       <div class="dial">
@@ -74,7 +74,7 @@
       </button>
     </div>
   {/if}
-</Panel>
+</Drawer>
 
 <style>
   .hint {

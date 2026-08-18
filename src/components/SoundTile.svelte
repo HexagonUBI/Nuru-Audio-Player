@@ -15,6 +15,20 @@
   } = $props();
 
   const cover = $derived(coverUrl(sound));
+
+  const layers = $derived.by(() => {
+    const art = cover ? `url("${cover}")` : 'none';
+    const scrim = 'linear-gradient(to top, rgba(4, 5, 7, 0.7) 0%, rgba(4, 5, 7, 0) 52%)';
+    if (active) {
+      const tint = `linear-gradient(${sound.accent}e0, ${sound.accent}e0)`;
+      return {
+        image: `${scrim}, ${tint}, ${art}`,
+        blend: 'normal, screen, normal',
+      };
+    }
+    const dim = 'linear-gradient(rgba(7, 8, 10, 0.66), rgba(7, 8, 10, 0.66))';
+    return { image: `${scrim}, ${dim}, ${art}`, blend: 'normal, normal, normal' };
+  });
 </script>
 
 <button
@@ -22,19 +36,12 @@
   class:active
   class:loading
   style:--accent={sound.accent}
+  style:background-image={layers.image}
+  style:background-blend-mode={layers.blend}
   aria-pressed={active}
   aria-label="{sound.name}{active ? ', playing' : ''}"
   onclick={ontoggle}
 >
-  <span
-    class="art"
-    style:background-image={cover ? `url("${cover}")` : 'none'}
-    aria-hidden="true"
-  ></span>
-  <span class="dim" aria-hidden="true"></span>
-  <span class="tint" aria-hidden="true"></span>
-  <span class="scrim" aria-hidden="true"></span>
-
   <span class="label">{sound.name}</span>
 
   {#if loading}
@@ -48,51 +55,19 @@
     width: var(--tile-size);
     height: var(--tile-size);
     border-radius: var(--tile-radius);
-    overflow: hidden;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
     text-align: left;
+    overflow: hidden;
+    background-size: cover, cover, cover;
+    background-position: center;
+    background-repeat: no-repeat;
     box-shadow: var(--e-2);
-    isolation: isolate;
     transition:
       transform var(--dur-3) var(--ease-spring),
-      box-shadow var(--dur-3) var(--ease-out);
-  }
-
-  .art,
-  .dim,
-  .tint,
-  .scrim {
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-  }
-
-  .art {
-    background-size: cover;
-    background-position: center;
-    transition:
-      transform var(--dur-4) var(--ease-out),
+      box-shadow var(--dur-3) var(--ease-out),
       filter var(--dur-3) var(--ease-out);
-  }
-
-  .dim {
-    background: #07080a;
-    opacity: 0.66;
-    transition: opacity var(--dur-3) var(--ease-out);
-  }
-
-  .tint {
-    background: var(--accent);
-    mix-blend-mode: screen;
-    opacity: 0;
-    transition: opacity var(--dur-3) var(--ease-out);
-  }
-
-  .scrim {
-    background: linear-gradient(to top, rgba(4, 5, 7, 0.7) 0%, rgba(4, 5, 7, 0) 52%);
   }
 
   .tile:hover,
@@ -100,16 +75,7 @@
     transform: translateY(-4px);
     box-shadow: var(--e-3);
     z-index: 2;
-  }
-
-  .tile:hover .dim,
-  .tile:focus-visible .dim {
-    opacity: 0.5;
-  }
-
-  .tile:hover .art,
-  .tile:focus-visible .art {
-    transform: scale(1.05);
+    filter: brightness(1.28);
   }
 
   .tile:active {
@@ -122,31 +88,14 @@
     box-shadow:
       var(--e-2),
       0 4px 34px -6px var(--accent);
+    filter: brightness(1.02) contrast(1.12) saturate(1.28);
   }
 
-  .tile.active .dim {
-    opacity: 0;
-  }
 
-  .tile.active .art {
-    filter: brightness(1.16) contrast(1.2) saturate(1.45);
-  }
-
-  .tile.active .tint {
-    opacity: 0.92;
-  }
-
-  .tile.active .scrim {
-    background: linear-gradient(to top, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0) 48%);
-  }
-
-  .tile.active .label {
-    color: rgba(10, 11, 13, 0.88);
-    text-shadow: 0 1px 10px rgba(255, 255, 255, 0.45);
-  }
-
-  .tile.active:hover {
+  .tile.active:hover,
+  .tile.active:focus-visible {
     transform: translateY(-4px);
+    filter: brightness(1.02) contrast(1.12) saturate(1.28);
   }
 
   .label {
@@ -161,6 +110,11 @@
     text-shadow:
       0 1px 3px rgba(0, 0, 0, 0.85),
       0 2px 16px rgba(0, 0, 0, 0.55);
+  }
+
+  .tile.active .label {
+    color: rgba(10, 11, 13, 0.9);
+    text-shadow: 0 1px 10px rgba(255, 255, 255, 0.4);
   }
 
   .spinner {
@@ -185,10 +139,6 @@
     .tile:hover,
     .tile:focus-visible,
     .tile.active:hover {
-      transform: none;
-    }
-    .tile:hover .art,
-    .tile:focus-visible .art {
       transform: none;
     }
   }

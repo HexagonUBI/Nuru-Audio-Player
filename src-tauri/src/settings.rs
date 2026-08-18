@@ -3,10 +3,22 @@ use std::path::PathBuf;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
     pub output_device: Option<String>,
+    #[serde(default = "yes")]
+    pub auto_update: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self { output_device: None, auto_update: true }
+    }
 }
 
 pub struct SettingsStore {

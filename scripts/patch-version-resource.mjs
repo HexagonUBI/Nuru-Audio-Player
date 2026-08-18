@@ -14,7 +14,7 @@ const candidates = [
 
 const exe = candidates.find(existsSync);
 if (!exe) {
-  console.error('patch-version-resource: no nuru.exe found; nothing to stamp');
+  console.error('patch-version-resource: no nuru.exe found, nothing to stamp');
   process.exit(1);
 }
 
