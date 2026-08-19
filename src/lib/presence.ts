@@ -154,7 +154,7 @@ export function presenceFor(
   const count = n === 0 ? 'Nothing playing' : n === 1 ? '1 soundscape' : `${n} soundscapes`;
 
   return {
-    details: chosen.get(mood) as string,
-    status: cozy ? `${count}, curled up` : count,
+    details: cozy ? `${count}, curled up` : count,
+    status: chosen.get(mood) as string,
   };
 }

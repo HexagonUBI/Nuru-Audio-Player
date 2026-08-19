@@ -188,7 +188,7 @@ button {
   font-size: 1.02rem;
 }
 .brand img {
-  width: 24px;
+  width: auto;
   height: 24px;
 }
 
@@ -1006,6 +1006,9 @@ section.band {
 }
 .foot-in .brand {
   font-size: 0.95rem;
+}
+.foot-in .brand img {
+  height: 22px;
 }
 .foot-in nav {
   display: flex;

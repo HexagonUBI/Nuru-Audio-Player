@@ -97,18 +97,27 @@ function previewRelease(): ReleaseInfo {
 async function previewSounds(): Promise<SoundEntry[]> {
   if (previewState.loaded) return previewState.loaded;
   try {
-    const res = await fetch('/devpack/catalogue.json');
-    if (!res.ok) throw new Error(String(res.status));
-    const cat: Catalogue = await res.json();
-    previewState.loaded = cat.sounds.map((s) => ({
-      ...s,
-      pack: cat.pack,
-      packName: cat.packName,
-      builtin: true,
-      audioPath: '',
-      coverPath: null,
-      verified: false,
-    }));
+    const index = await fetch('/devpack/index.json');
+    if (!index.ok) throw new Error(String(index.status));
+    const packs: string[] = await index.json();
+    const all: SoundEntry[] = [];
+    for (const dir of packs) {
+      const res = await fetch(`/devpack/${dir}/catalogue.json`);
+      if (!res.ok) continue;
+      const cat: Catalogue = await res.json();
+      for (const s of cat.sounds) {
+        all.push({
+          ...s,
+          pack: cat.pack,
+          packName: cat.packName,
+          builtin: true,
+          audioPath: '',
+          coverPath: null,
+          verified: false,
+        });
+      }
+    }
+    previewState.loaded = all;
   } catch {
     previewState.loaded = [];
   }

@@ -1,10 +1,12 @@
 <script lang="ts">
   import { nuru } from '$lib/store.svelte';
   import Drawer from './Drawer.svelte';
+  import SchedulePanel from './SchedulePanel.svelte';
 
   const PRESETS = [10, 20, 30, 45, 60, 90, 120];
 
   let custom = $state(45);
+  let tab = $state<'sleep' | 'schedule'>('sleep');
 
   const running = $derived(nuru.timer.kind === 'running');
 
@@ -23,8 +25,20 @@
   );
 </script>
 
-<Drawer title="Sleep timer" onclose={() => (nuru.activePanel = 'none')} width={380}>
-  {#if running}
+<Drawer title="Timers" onclose={() => (nuru.activePanel = 'none')} width={380}>
+  <div class="tabs">
+    <button class="u-pressable" class:on={tab === 'sleep'} onclick={() => (tab = 'sleep')}>
+      Sleep
+    </button>
+    <button class="u-pressable" class:on={tab === 'schedule'} onclick={() => (tab = 'schedule')}>
+      Schedule
+      {#if nuru.scheduleEnabled}<span class="live"></span>{/if}
+    </button>
+  </div>
+
+  {#if tab === 'schedule'}
+    <SchedulePanel />
+  {:else if running}
     <div class="running">
       <div class="dial">
         <div class="ring" style:--p={progress}></div>
@@ -60,7 +74,7 @@
         min="1"
         max="600"
         bind:value={custom}
-        class="u-numeric"
+        class="u-field u-numeric"
       />
       <span class="u">min</span>
       <button
@@ -77,6 +91,36 @@
 </Drawer>
 
 <style>
+  .tabs {
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    margin-bottom: var(--sp-4);
+    border-radius: var(--r-pill);
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .tabs button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: var(--r-pill);
+    font: var(--t-label);
+    color: var(--ink-40);
+  }
+  .tabs button.on {
+    color: var(--ink);
+    background: var(--s-500);
+  }
+  .live {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--nuru);
+  }
+
   .hint {
     font: var(--t-body);
     color: var(--ink-40);
@@ -130,15 +174,8 @@
     margin-right: auto;
   }
   .custom input {
-    width: 64px;
-    padding: 7px 9px;
-    border-radius: var(--r-sm);
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: inset 0 0 0 1px var(--line);
+    width: 72px;
     text-align: right;
-  }
-  .custom input:focus {
-    box-shadow: inset 0 0 0 1px var(--nuru);
   }
 
   .solid {

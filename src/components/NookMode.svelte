@@ -6,6 +6,8 @@
   import { win } from '$lib/bridge';
   import Fader from './Fader.svelte';
   import Icon from './Icon.svelte';
+  import NookView from './NookView.svelte';
+  import NookRoom from './NookRoom.svelte';
 
   const SKY: Record<string, [string, string, string]> = {
     night: ['#080a14', '#131a2e', '#1b2136'],
@@ -139,23 +141,6 @@
     };
   });
 
-  const cityLights = $derived.by(() => {
-    if (scene.window !== 'city') return [];
-    const rows = 7;
-    const cols = 26;
-    const out: Array<{ x: number; y: number; on: number }> = [];
-    for (let c = 0; c < cols; c++) {
-      for (let r = 0; r < rows; r++) {
-        const seed = Math.sin(c * 12.9898 + r * 78.233) * 43758.5453;
-        const rnd = seed - Math.floor(seed);
-        if (rnd > 0.55) {
-          out.push({ x: (c / cols) * 100, y: (r / rows) * 100, on: 0.3 + rnd * 0.7 });
-        }
-      }
-    }
-    return out;
-  });
-
   async function exit() {
     nuru.nookMode = false;
     await win.setFullscreen(false);
@@ -189,16 +174,7 @@
   <div class="sky"></div>
 
   <div class="outside">
-    <div class="band far"></div>
-    <div class="band mid"></div>
-    {#if scene.window === 'city'}
-      <div class="lights" aria-hidden="true">
-        {#each cityLights as l, i (i)}
-          <span style:left="{l.x}%" style:top="{l.y}%" style:opacity={l.on}></span>
-        {/each}
-      </div>
-    {/if}
-    <div class="band near"></div>
+    <NookView view={scene.window} />
   </div>
 
   {#if scene.storm > 0.05}
@@ -214,6 +190,8 @@
     <span class="mullion h"></span>
   </div>
   <div class="sill"></div>
+
+  <NookRoom />
 
   {#if scene.hearth > 0.02}
     <div class="hearth" class:campfire={scene.hearthKind === 'campfire'}></div>
@@ -283,69 +261,12 @@
     pointer-events: none;
   }
 
-  .sky,
-  .band {
+  .sky {
     transition: background var(--dur-scene) var(--ease-in-out);
   }
 
   .sky {
     background: linear-gradient(180deg, var(--sky-0) 0%, var(--sky-1) 52%, var(--sky-2) 100%);
-  }
-
-  .band {
-    position: absolute;
-    inset-inline: -5%;
-    border-radius: 50% 50% 0 0 / 14% 14% 0 0;
-  }
-  .far {
-    bottom: 26%;
-    height: 26%;
-    background: var(--view-0);
-    filter: blur(1px);
-  }
-  .mid {
-    bottom: 18%;
-    height: 26%;
-    background: var(--view-1);
-  }
-  .near {
-    bottom: 0;
-    height: 26%;
-    background: var(--view-2);
-  }
-
-  .lights {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 18%;
-    height: 26%;
-    pointer-events: none;
-  }
-  .lights span {
-    position: absolute;
-    width: 2px;
-    height: 3px;
-    background: #ffd79a;
-    box-shadow: 0 0 6px 1px rgba(255, 200, 120, 0.5);
-    filter: blur(calc(var(--wet) * 1.6px));
-    animation: blink 7s var(--ease-in-out) infinite;
-  }
-  .lights span:nth-child(3n) {
-    animation-delay: 2.4s;
-  }
-  .lights span:nth-child(5n) {
-    animation-delay: 4.1s;
-  }
-  @keyframes blink {
-    0%,
-    92%,
-    100% {
-      opacity: inherit;
-    }
-    94% {
-      opacity: 0.15;
-    }
   }
 
   .weather {
@@ -524,8 +445,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     .lightning,
-    .hearth,
-    .lights span {
+    .hearth {
       animation: none;
     }
   }

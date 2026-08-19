@@ -1,7 +1,7 @@
 {
   "name": "nuru",
   "productName": "Nuru",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Play any combination of ambient sounds, seamlessly looped.",
   "private": true,
   "type": "module",
@@ -9,12 +9,19 @@
     "dev": "vite",
     "build": "npm run version:sync && svelte-check --tsconfig ./tsconfig.json && vite build",
     "preview": "vite preview",
+    "db:dev": "node server/index.js",
+    "db:seed": "node server/seed.mjs",
+    "db:tags": "node server/tags.mjs",
+    "db:promote": "node server/promote.mjs",
+    "db:reset": "node server/reset.mjs && npm run db:seed",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "tauri": "tauri",
     "app:dev": "npm run version:sync && tauri dev",
     "app:build": "npm run version:sync && tauri build",
     "version:sync": "node scripts/sync-version.mjs",
-    "pack:placeholder": "node scripts/build-placeholder-pack.mjs"
+    "pack:placeholder": "node scripts/build-placeholder-pack.mjs",
+    "db:pack": "node scripts/pack-workshop.mjs",
+    "icons": "node scripts/make-icon.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.5.0",
@@ -24,6 +31,7 @@
     "@tauri-apps/plugin-store": "^2.2.0"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@tauri-apps/cli": "^2.5.0",
     "rcedit": "^5.0.2",

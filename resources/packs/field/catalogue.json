@@ -1,0 +1,152 @@
+{
+  "schema": 1,
+  "pack": "field",
+  "packName": "Built-in",
+  "sounds": [
+    {
+      "id": "station-rain",
+      "name": "Station Rain",
+      "accent": "#8FB8FF",
+      "tags": [
+        "weather",
+        "water",
+        "urban"
+      ],
+      "cover": "covers/station-rain.jpg",
+      "audio": {
+        "file": "audio/station-rain.flac",
+        "bytes": 5668576,
+        "sha256": "5a16cf33c1a1ec7ab188d78f3c623b85338544eab69e288f5d9277b68275a845",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 2160000,
+        "codec": "flac"
+      },
+      "loop": {
+        "startSample": 0,
+        "endSample": null,
+        "crossfadeMs": 1200,
+        "method": "crossfade"
+      },
+      "nook": {
+        "channel": "weather",
+        "state": "rain",
+        "weight": 0.9
+      },
+      "provenance": {
+        "origin": "archive.org:aporee_20306_23624",
+        "licence": "CC-PDM-1.0",
+        "attribution": "Wu,Tsan-Cheng - Luodong Station, Taiwan - Heavy rain (radio aporee ::: maps, archive.org)",
+        "shippable": true
+      }
+    },
+    {
+      "id": "mountain-stream",
+      "name": "Mountain Stream",
+      "accent": "#6FE3C4",
+      "tags": [
+        "nature",
+        "water"
+      ],
+      "cover": "covers/mountain-stream.jpg",
+      "audio": {
+        "file": "audio/mountain-stream.flac",
+        "bytes": 5628319,
+        "sha256": "94f5947bbb05610966ada342dd1627846593f45d46aa7335f5f3183c25328dcf",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 2160000,
+        "codec": "flac"
+      },
+      "loop": {
+        "startSample": 0,
+        "endSample": null,
+        "crossfadeMs": 1200,
+        "method": "crossfade"
+      },
+      "nook": {
+        "channel": "window",
+        "state": "forest",
+        "weight": 0.5
+      },
+      "provenance": {
+        "origin": "archive.org:aporee_25277_29314",
+        "licence": "CC-PDM-1.0",
+        "attribution": "maciej janasik - Feldberg, Feldsee - up the stream (radio aporee ::: maps, archive.org)",
+        "shippable": true
+      }
+    },
+    {
+      "id": "sea-stones",
+      "name": "Sea on Stones",
+      "accent": "#5AC8FF",
+      "tags": [
+        "nature",
+        "water"
+      ],
+      "cover": "covers/sea-stones.jpg",
+      "audio": {
+        "file": "audio/sea-stones.flac",
+        "bytes": 5015799,
+        "sha256": "650e50cf4b8c2a9b3254029b6b7af0f74e7138b90f689dbc15942156138deaa4",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 2160000,
+        "codec": "flac"
+      },
+      "loop": {
+        "startSample": 0,
+        "endSample": null,
+        "crossfadeMs": 1200,
+        "method": "crossfade"
+      },
+      "nook": {
+        "channel": "window",
+        "state": "beach",
+        "weight": 0.85
+      },
+      "provenance": {
+        "origin": "archive.org:aporee_35106_40345",
+        "licence": "CC-PDM-1.0",
+        "attribution": "alas23/sala - Puerto De Sardina, Gran Canaria - waves on stones (radio aporee ::: maps, archive.org)",
+        "shippable": true
+      }
+    },
+    {
+      "id": "dusk-chorus",
+      "name": "Dusk Chorus",
+      "accent": "#E8D45C",
+      "tags": [
+        "nature",
+        "life"
+      ],
+      "cover": "covers/dusk-chorus.jpg",
+      "audio": {
+        "file": "audio/dusk-chorus.flac",
+        "bytes": 4979955,
+        "sha256": "47eeb82b3cd2ae9a22c5872db80b087643c742e9aee40a3af8ba34bf8aa58555",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 2160000,
+        "codec": "flac"
+      },
+      "loop": {
+        "startSample": 0,
+        "endSample": null,
+        "crossfadeMs": 1200,
+        "method": "crossfade"
+      },
+      "nook": {
+        "channel": "sky",
+        "state": "dusk",
+        "weight": 0.7
+      },
+      "provenance": {
+        "origin": "archive.org:aporee_38699_44216",
+        "licence": "CC-PDM-1.0",
+        "attribution": "Ahmad Saufie Jaffar - Hutan Rekreasi, Melaka, Malaysia - Dusk Chorus (radio aporee ::: maps, archive.org)",
+        "shippable": true
+      }
+    }
+  ]
+}

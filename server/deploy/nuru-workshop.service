@@ -1,0 +1,28 @@
+[Unit]
+Description=Nuru Workshop
+After=network.target
+
+[Service]
+Type=simple
+User=nuru
+Group=nuru
+WorkingDirectory=/srv/nuru
+ExecStart=/usr/bin/node /srv/nuru/server/src/server.mjs
+Restart=always
+RestartSec=3
+
+Environment=NODE_ENV=production
+Environment=NURU_DB_HOST=127.0.0.1
+Environment=NURU_DB_PORT=5175
+Environment=NURU_PUBLIC_URL=https://paradise.simplefox.studio
+Environment=NURU_TRUST_PROXY=1
+Environment=NURU_MODERATOR_EMAIL=change-me@example.com
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/nuru/server/data
+
+[Install]
+WantedBy=multi-user.target

@@ -7,6 +7,19 @@
   import Icon from './Icon.svelte';
 
   const loadingIds = $derived(new Set(nuru.layers.filter((l) => l.loading).map((l) => l.soundId)));
+
+  const VISIBLE_TAGS = 8;
+
+  let allTags = $state(false);
+
+  const shownTags = $derived.by(() => {
+    if (allTags || nuru.tags.length <= VISIBLE_TAGS) return nuru.tags;
+    const top = nuru.tags.slice(0, VISIBLE_TAGS);
+    if (nuru.filter && !top.includes(nuru.filter)) top[top.length - 1] = nuru.filter;
+    return top;
+  });
+
+  const hiddenTags = $derived(nuru.tags.length - shownTags.length);
 </script>
 
 <section class="grid-pane">
@@ -39,7 +52,7 @@
       >
         All
       </button>
-      {#each nuru.tags as tag (tag)}
+      {#each shownTags as tag (tag)}
         <button
           class="chip u-pressable"
           class:on={nuru.filter === tag}
@@ -48,6 +61,15 @@
           {tag}
         </button>
       {/each}
+      {#if hiddenTags > 0 || allTags}
+        <button
+          class="chip more u-pressable"
+          onclick={() => (allTags = !allTags)}
+          aria-expanded={allTags}
+        >
+          {allTags ? 'Less' : `+${hiddenTags} more`}
+        </button>
+      {/if}
     </div>
   </div>
 
@@ -66,23 +88,37 @@
       </p>
     {:else}
       {#each nuru.groups as group (group.name)}
+        {@const shut = nuru.isCollapsed(group.name)}
         <section class="group">
-          <h2 class="u-caps">{group.name}<span class="count">{group.sounds.length}</span></h2>
-          <div class="grid">
-            {#each group.sounds as sound, i (sound.id)}
-              <div
-                in:fly={{ y: 14, duration: 300, delay: Math.min(i * 22, 260), easing: cubicOut }}
-                out:fade={{ duration: 120 }}
-              >
-                <SoundTile
-                  {sound}
-                  active={nuru.activeIds.has(sound.id)}
-                  loading={loadingIds.has(sound.id)}
-                  ontoggle={() => nuru.toggle(sound.id)}
-                />
-              </div>
-            {/each}
-          </div>
+          <h2 class="u-caps">
+            <button
+              class="arrow"
+              class:shut
+              onclick={() => nuru.toggleGroup(group.name)}
+              aria-expanded={!shut}
+              aria-label={shut ? `Expand ${group.name}` : `Collapse ${group.name}`}
+            >
+              <Icon name="chevron" size={12} stroke={2} />
+            </button>
+            {group.name}<span class="count">{group.sounds.length}</span>
+          </h2>
+          {#if !shut}
+            <div class="grid">
+              {#each group.sounds as sound, i (sound.id)}
+                <div
+                  in:fly={{ y: 14, duration: 300, delay: Math.min(i * 22, 260), easing: cubicOut }}
+                  out:fade={{ duration: 120 }}
+                >
+                  <SoundTile
+                    {sound}
+                    active={nuru.activeIds.has(sound.id)}
+                    loading={loadingIds.has(sound.id)}
+                    ontoggle={() => nuru.toggle(sound.id)}
+                  />
+                </div>
+              {/each}
+            </div>
+          {/if}
         </section>
       {/each}
     {/if}
@@ -187,6 +223,15 @@
     box-shadow: none;
   }
 
+  .chip.more {
+    text-transform: none;
+    color: var(--ink-25);
+    box-shadow: inset 0 0 0 1px var(--line-soft);
+  }
+  .chip.more:hover {
+    color: var(--ink-60);
+  }
+
   .scroll {
     flex: 1;
     overflow-y: auto;
@@ -202,6 +247,22 @@
     align-items: center;
     gap: var(--sp-2);
     margin-bottom: var(--sp-3);
+  }
+
+  .arrow {
+    display: flex;
+    align-items: center;
+    color: var(--ink-25);
+  }
+  .arrow :global(svg) {
+    transform: rotate(90deg);
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+  .arrow.shut :global(svg) {
+    transform: rotate(0deg);
+  }
+  .arrow:hover {
+    color: var(--ink-60);
   }
 
   .count {

@@ -89,6 +89,7 @@
       "foot.source": "Source",
       "foot.releases": "Releases",
       "foot.issues": "Report a problem",
+      "foot.kofi": "Support on Ko-fi",
       "aria.theme": "Site theme",
       "aria.lang": "Site language"
     },
@@ -180,6 +181,7 @@
       "foot.source": "Исходники",
       "foot.releases": "Релизы",
       "foot.issues": "Сообщить о проблеме",
+      "foot.kofi": "Поддержать на Ko-fi",
       "aria.theme": "Тема сайта",
       "aria.lang": "Язык сайта"
     },
@@ -271,6 +273,7 @@
       "foot.source": "Вихідники",
       "foot.releases": "Релізи",
       "foot.issues": "Повідомити про проблему",
+      "foot.kofi": "Підтримати на Ko-fi",
       "aria.theme": "Тема сайту",
       "aria.lang": "Мова сайту"
     }

@@ -66,7 +66,7 @@ impl Presence {
 
                     let result = if wanted.active {
                         let mut activity = Activity::new()
-                            .activity_type(ActivityType::Listening)
+                            .activity_type(ActivityType::Playing)
                             .details(&wanted.details)
                             .state(&wanted.state)
                             .assets(Assets::new().large_image("nuru").large_text("Nuru"))

@@ -66,8 +66,8 @@
         class="u-pressable tool"
         class:on={nuru.activePanel === 'timer'}
         onclick={() => panel('timer')}
-        aria-label="Sleep timer"
-        title="Sleep timer"
+        aria-label="Timers"
+        title="Timers and schedule"
       >
         <Icon name="timer" size={16} />
       </button>

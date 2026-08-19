@@ -36,3 +36,6 @@ desktop.ini
 # Local test builds kept side by side for update testing.
 /release/
 /resources/nuru-restart.exe
+
+# local sound database (dev only)
+/server/data

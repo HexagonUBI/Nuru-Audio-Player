@@ -1,9 +1,9 @@
 import { defineConfig, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 
-const PACK_DIR = join(process.cwd(), 'resources', 'packs', 'elpy-placeholder');
+const PACKS_ROOT = join(process.cwd(), 'resources', 'packs');
 const MIME: Record<string, string> = {
   '.json': 'application/json',
   '.png': 'image/png',
@@ -19,8 +19,21 @@ function devPack(): Plugin {
     configureServer(server) {
       server.middlewares.use('/devpack', (req, res, next) => {
         const rel = decodeURIComponent((req.url ?? '/').split('?')[0]);
-        const file = normalize(join(PACK_DIR, rel));
-        if (!file.startsWith(PACK_DIR) || !existsSync(file) || !statSync(file).isFile()) {
+
+        if (rel === '/index.json') {
+          const packs = readdirSync(PACKS_ROOT, { withFileTypes: true })
+            .filter(
+              (d) => d.isDirectory() && existsSync(join(PACKS_ROOT, d.name, 'catalogue.json')),
+            )
+            .map((d) => d.name);
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Cache-Control', 'no-cache');
+          res.end(JSON.stringify(packs));
+          return;
+        }
+
+        const file = normalize(join(PACKS_ROOT, rel));
+        if (!file.startsWith(PACKS_ROOT) || !existsSync(file) || !statSync(file).isFile()) {
           return next();
         }
         res.setHeader('Content-Type', MIME[extname(file)] ?? 'application/octet-stream');

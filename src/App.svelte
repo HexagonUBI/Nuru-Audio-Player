@@ -6,6 +6,7 @@
   import TimerPanel from './components/TimerPanel.svelte';
   import PresetPanel from './components/PresetPanel.svelte';
   import SettingsPanel from './components/SettingsPanel.svelte';
+  import CreditsPanel from './components/CreditsPanel.svelte';
   import NookMode from './components/NookMode.svelte';
   import LoadingScreen from './components/LoadingScreen.svelte';
   import ChangelogPanel from './components/ChangelogPanel.svelte';
@@ -55,6 +56,8 @@
   <PresetPanel />
 {:else if nuru.activePanel === 'settings'}
   <SettingsPanel />
+{:else if nuru.activePanel === 'credits'}
+  <CreditsPanel />
 {/if}
 
 {#if nuru.nookMode}

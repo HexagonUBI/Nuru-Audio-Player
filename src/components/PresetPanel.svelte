@@ -27,6 +27,7 @@
 <Drawer title="Mixes" onclose={() => (nuru.activePanel = 'none')} width={420}>
   <div class="save">
     <input
+      class="u-field"
       type="text"
       placeholder={nuru.layers.length ? 'Name this mix' : 'Play something first'}
       bind:value={name}
@@ -91,20 +92,6 @@
   .save input {
     flex: 1;
     min-width: 0;
-    padding: 9px 11px;
-    border-radius: var(--r-sm);
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: inset 0 0 0 1px var(--line);
-    transition: box-shadow var(--dur-2) var(--ease-out);
-  }
-  .save input:focus {
-    box-shadow: inset 0 0 0 1px var(--nuru);
-  }
-  .save input::placeholder {
-    color: var(--ink-25);
-  }
-  .save input:disabled {
-    opacity: 0.5;
   }
 
   .solid {

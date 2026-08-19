@@ -1,0 +1,14 @@
+{
+  "name": "nuru-workshop",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The Nuru Workshop. Zero dependencies, needs node 24 or newer for node:sqlite.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

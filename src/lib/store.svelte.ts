@@ -3,10 +3,48 @@
 import { api, onProgress, BOOT_EVENT, UPDATE_EVENT, type Progress, type UpdateStatus, type ReleaseInfo } from './bridge';
 import { randomAccent, randomLine } from './splash';
 import { presenceFor } from './presence';
-import type { Layer, Preset, SoundEntry, TimerState } from './types';
+import type { Layer, Preset, Schedule, SoundEntry, TimerState } from './types';
+import { SCHEDULE_SLOTS, SLOT_MINUTES } from './types';
 
 const STORAGE_KEY = 'nuru.state.v1';
 const PRESET_KEY = 'nuru.presets.v1';
+const SCHEDULE_KEY = 'nuru.schedule.v1';
+
+const SCHEDULE_TICK_MS = 15_000;
+
+export function slotAt(date = new Date()): number {
+  return date.getHours() * 2 + (date.getMinutes() >= 30 ? 1 : 0);
+}
+
+export function slotLabel(slot: number): string {
+  const total = ((slot % SCHEDULE_SLOTS) + SCHEDULE_SLOTS) % SCHEDULE_SLOTS;
+  const hour24 = Math.floor(total / 2);
+  const minute = total % 2 === 0 ? '00' : '30';
+  const suffix = hour24 < 12 ? 'am' : 'pm';
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+  return `${hour12}:${minute}${suffix}`;
+}
+
+function emptySchedule(): Schedule {
+  return Array.from({ length: SCHEDULE_SLOTS }, () => null);
+}
+
+function loadSchedule(): Schedule {
+  const base = emptySchedule();
+  try {
+    const raw = localStorage.getItem(SCHEDULE_KEY);
+    if (!raw) return base;
+    const parsed = JSON.parse(raw) as { slots?: unknown };
+    if (!Array.isArray(parsed.slots)) return base;
+    for (let i = 0; i < SCHEDULE_SLOTS; i++) {
+      const v = parsed.slots[i];
+      base[i] = typeof v === 'string' && v ? v : null;
+    }
+  } catch {
+    return emptySchedule();
+  }
+  return base;
+}
 
 const MIN_BOOT_MS = 1100;
 
@@ -21,6 +59,50 @@ export type TileSize = keyof typeof TILE_SIZES;
 
 const DEFAULT_SOUND_VOLUME = 0.55;
 
+const TAG_PRIORITY = [
+  'fire',
+  'transit',
+  'weather',
+  'water',
+  'urban',
+  'nature',
+  'life',
+  'people',
+  'indoor',
+  'noise',
+];
+
+const TAG_ORDER = [
+  'nature',
+  'weather',
+  'water',
+  'fire',
+  'life',
+  'urban',
+  'transit',
+  'indoor',
+  'people',
+  'noise',
+];
+
+const OTHER = 'other';
+
+function categoryOf(tags: string[]): string {
+  for (const tag of TAG_PRIORITY) if (tags.includes(tag)) return tag;
+  return tags[0] ?? OTHER;
+}
+
+function categoryRank(tag: string): number {
+  const i = TAG_ORDER.indexOf(tag);
+  return i === -1 ? TAG_ORDER.length : i;
+}
+
+function bySortKey(a: SoundEntry, b: SoundEntry): number {
+  const ra = categoryRank(categoryOf(a.tags));
+  const rb = categoryRank(categoryOf(b.tags));
+  return ra === rb ? a.name.localeCompare(b.name) : ra - rb;
+}
+
 interface Persisted {
   masterVolume: number;
   theme: string;
@@ -29,6 +111,9 @@ interface Persisted {
   restoreOnLaunch: boolean;
   tileSize: TileSize;
   soundVolumes: Record<string, number>;
+  sceneFollowsVolume: boolean;
+  scheduleEnabled: boolean;
+  collapsedGroups: string[];
 }
 
 function load<T>(key: string, fallback: T): T {
@@ -56,6 +141,9 @@ const saved = load<Persisted>(STORAGE_KEY, {
   restoreOnLaunch: true,
   tileSize: 'normal',
   soundVolumes: {},
+  sceneFollowsVolume: true,
+  scheduleEnabled: false,
+  collapsedGroups: [],
 });
 
 class NuruStore {
@@ -70,6 +158,8 @@ class NuruStore {
   restoreOnLaunch = $state(saved.restoreOnLaunch);
   tileSize = $state<TileSize>(saved.tileSize ?? 'normal');
   soundVolumes = $state<Record<string, number>>(saved.soundVolumes ?? {});
+  sceneFollowsVolume = $state(saved.sceneFollowsVolume ?? true);
+  collapsedGroups = $state<string[]>(saved.collapsedGroups ?? []);
 
   outputDevices = $state<string[]>([]);
   outputDevice = $state<string | null>(null);
@@ -91,11 +181,15 @@ class NuruStore {
   timer = $state<TimerState>({ kind: 'off' });
   timerRemainingMs = $state(0);
 
+  schedule = $state<Schedule>(loadSchedule());
+  scheduleEnabled = $state(saved.scheduleEnabled ?? false);
+  scheduleSlot = $state(slotAt());
+
   filter = $state<string>('');
   search = $state('');
 
   nookMode = $state(false);
-  activePanel = $state<'none' | 'presets' | 'timer' | 'settings'>('none');
+  activePanel = $state<'none' | 'presets' | 'timer' | 'settings' | 'credits'>('none');
 
   toasts = $state<Array<{ id: number; text: string; tone: 'info' | 'error' }>>([]);
   private nextToast = 0;
@@ -122,17 +216,56 @@ class NuruStore {
 
   activeIds = $derived(new Set(this.layers.map((l) => l.soundId)));
 
+  presetById = $derived(new Map(this.presets.map((p) => [p.id, p])));
+
+  scheduledPresets = $derived(
+    this.presets.filter((p) => this.schedule.includes(p.id)),
+  );
+
+  scheduleBlock = $derived.by(() => {
+    const slot = this.scheduleSlot;
+    const id = this.schedule[slot] ?? null;
+    let start = slot;
+    while (start > 0 && (this.schedule[start - 1] ?? null) === id) start -= 1;
+    let end = slot;
+    while (end < SCHEDULE_SLOTS - 1 && (this.schedule[end + 1] ?? null) === id) end += 1;
+    return {
+      id,
+      preset: id ? (this.presetById.get(id) ?? null) : null,
+      startsAt: slotLabel(start),
+      endsAt: slotLabel(end + 1),
+    };
+  });
+
+  scheduleNext = $derived.by(() => {
+    const here = this.schedule[this.scheduleSlot] ?? null;
+    for (let step = 1; step <= SCHEDULE_SLOTS; step++) {
+      const slot = (this.scheduleSlot + step) % SCHEDULE_SLOTS;
+      const id = this.schedule[slot] ?? null;
+      if (id === here) continue;
+      return {
+        at: slotLabel(slot),
+        preset: id ? (this.presetById.get(id) ?? null) : null,
+        stops: id === null,
+      };
+    }
+    return null;
+  });
+
   groups = $derived.by(() => {
-    const byName = new Map<string, SoundEntry[]>();
+    const byName = new Map<string, { builtin: boolean; sounds: SoundEntry[] }>();
     for (const s of this.visibleSounds) {
-      const name = s.builtin ? 'Built-in' : s.packName || 'Other';
-      const list = byName.get(name);
-      if (list) list.push(s);
-      else byName.set(name, [s]);
+      const name = s.packName || 'Other';
+      const found = byName.get(name);
+      if (found) found.sounds.push(s);
+      else byName.set(name, { builtin: s.builtin, sounds: [s] });
     }
     return [...byName.entries()]
-      .sort((a, b) => (a[0] === 'Built-in' ? -1 : b[0] === 'Built-in' ? 1 : a[0].localeCompare(b[0])))
-      .map(([name, sounds]) => ({ name, sounds }));
+      .sort((a, b) => {
+        if (a[1].builtin !== b[1].builtin) return a[1].builtin ? -1 : 1;
+        return a[0].localeCompare(b[0]);
+      })
+      .map(([name, g]) => ({ name, sounds: [...g.sounds].sort(bySortKey) }));
   });
 
   scene = $derived.by(() => {
@@ -149,7 +282,9 @@ class NuruStore {
     for (const layer of this.layers) {
       const sound = this.byId.get(layer.soundId);
       if (!sound || sound.nook.channel === 'none') continue;
-      const strength = sound.nook.weight * layer.volume;
+      const strength = this.sceneFollowsVolume
+        ? sound.nook.weight * layer.volume
+        : sound.nook.weight;
       const { channel, state } = sound.nook;
 
       if (channel === 'weather') {
@@ -244,6 +379,8 @@ class NuruStore {
       await new Promise((r) => setTimeout(r, MIN_BOOT_MS - held));
     }
     this.boot = { ...this.boot, progress: 1, visible: false, mode: 'startup' };
+
+    this.watchSchedule();
 
     await this.loadAutoUpdate();
     void this.showChangelogIfNew().catch(() => {});
@@ -362,6 +499,31 @@ class NuruStore {
     void unlisten;
   }
 
+  async reloadSounds() {
+    this.sounds = await api.listSounds();
+  }
+
+  setSceneFollowsVolume(on: boolean) {
+    this.sceneFollowsVolume = on;
+    this.persist();
+  }
+
+  setRestoreOnLaunch(on: boolean) {
+    this.restoreOnLaunch = on;
+    this.persist();
+  }
+
+  isCollapsed(group: string): boolean {
+    return this.collapsedGroups.includes(group);
+  }
+
+  toggleGroup(group: string) {
+    this.collapsedGroups = this.isCollapsed(group)
+      ? this.collapsedGroups.filter((g) => g !== group)
+      : [...this.collapsedGroups, group];
+    this.persist();
+  }
+
   setTileSize(size: TileSize) {
     this.tileSize = size;
     document.documentElement.dataset.tiles = size;
@@ -396,6 +558,9 @@ class NuruStore {
       restoreOnLaunch: this.restoreOnLaunch,
       tileSize: this.tileSize,
       soundVolumes: this.soundVolumes,
+      sceneFollowsVolume: this.sceneFollowsVolume,
+      scheduleEnabled: this.scheduleEnabled,
+      collapsedGroups: this.collapsedGroups,
       layers: this.layers.map((l) => ({ soundId: l.soundId, volume: l.volume })),
     } satisfies Persisted);
   }
@@ -494,15 +659,16 @@ class NuruStore {
   deletePreset(id: string) {
     this.presets = this.presets.filter((p) => p.id !== id);
     save(PRESET_KEY, { items: this.presets });
+    this.clearSlotsFor(id);
   }
 
-  async loadPreset(id: string) {
+  async loadPreset(id: string, note?: string) {
     const preset = this.presets.find((p) => p.id === id);
     if (!preset) return;
     await this.clear();
     if (preset.masterVolume !== null) await this.setMaster(preset.masterVolume);
     for (const l of preset.layers) await this.add(l.soundId, l.volume);
-    this.toast(`Loaded "${preset.name}"`);
+    this.toast(note ?? `Loaded "${preset.name}"`);
   }
 
   private timerHandle: ReturnType<typeof setInterval> | null = null;
@@ -533,6 +699,90 @@ class NuruStore {
     this.timerHandle = null;
     if (this.timer.kind === 'running') this.timer = { kind: 'off' };
     this.timerRemainingMs = 0;
+  }
+
+  private scheduleHandle: ReturnType<typeof setInterval> | null = null;
+  private scheduleSeen = -1;
+  private scheduleApplied: string | null = null;
+
+  watchSchedule() {
+    if (this.scheduleHandle) return;
+    this.scheduleHandle = setInterval(() => void this.tickSchedule(), SCHEDULE_TICK_MS);
+    void this.tickSchedule();
+  }
+
+  private async tickSchedule() {
+    const slot = slotAt();
+    this.scheduleSlot = slot;
+
+    if (!this.scheduleEnabled) {
+      this.scheduleSeen = -1;
+      this.scheduleApplied = null;
+      return;
+    }
+
+    if (slot === this.scheduleSeen) return;
+    this.scheduleSeen = slot;
+
+    const wanted = this.schedule[slot] ?? null;
+    if (wanted === this.scheduleApplied) return;
+    this.scheduleApplied = wanted;
+
+    if (!wanted) {
+      if (this.playing && this.layers.length) {
+        this.playing = false;
+        await api.setPlaying(false);
+        this.pushPresence();
+        this.toast(`Schedule: nothing set for ${slotLabel(slot)}, paused`);
+      }
+      return;
+    }
+
+    const preset = this.presetById.get(wanted);
+    if (!preset) {
+      this.clearSlotsFor(wanted);
+      return;
+    }
+    await this.loadPreset(wanted, `Schedule: ${preset.name} until ${this.scheduleBlock.endsAt}`);
+  }
+
+  setScheduleEnabled(on: boolean) {
+    this.scheduleEnabled = on;
+    this.scheduleSeen = -1;
+    this.scheduleApplied = null;
+    this.persist();
+    if (on) void this.tickSchedule();
+  }
+
+  setSlot(slot: number, presetId: string | null) {
+    if (slot < 0 || slot >= SCHEDULE_SLOTS) return;
+    const next = [...this.schedule];
+    next[slot] = presetId;
+    this.schedule = next;
+    this.saveSchedule();
+    this.scheduleSeen = -1;
+    if (this.scheduleEnabled) void this.tickSchedule();
+  }
+
+  clearSchedule() {
+    this.schedule = emptySchedule();
+    this.saveSchedule();
+    this.scheduleSeen = -1;
+    this.scheduleApplied = null;
+  }
+
+  private clearSlotsFor(presetId: string) {
+    if (!this.schedule.includes(presetId)) return;
+    this.schedule = this.schedule.map((s) => (s === presetId ? null : s));
+    this.saveSchedule();
+  }
+
+  private saveSchedule() {
+    save(SCHEDULE_KEY, { slots: this.schedule });
+  }
+
+  scheduledMinutes(presetId: string): number {
+    return this.schedule.filter((s) => s === presetId).length * SLOT_MINUTES;
   }
 
   setTheme(theme: string) {

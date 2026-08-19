@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "pack": "simplefox",
+  "packName": "Built-in",
+  "sounds": [
+    {
+      "id": "private-jet",
+      "name": "Private Jet",
+      "accent": "#C9973F",
+      "tags": [
+        "transit",
+        "noise",
+        "indoor"
+      ],
+      "cover": "covers/private-jet.jpg",
+      "audio": {
+        "file": "audio/private-jet.flac",
+        "bytes": 3629420,
+        "sha256": "661a5a1f378b474e07358f3d7c1a5b9f4ccce1df2c8c0fef2b756100baea0723",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 2376986,
+        "codec": "flac"
+      },
+      "loop": {
+        "startSample": 0,
+        "endSample": null,
+        "crossfadeMs": 0,
+        "method": "exact"
+      },
+      "nook": {
+        "channel": "transit",
+        "state": "plane",
+        "weight": 0.85
+      },
+      "provenance": {
+        "origin": "simplefox",
+        "licence": "OWN-WORK",
+        "attribution": "SimpleFox",
+        "shippable": true
+      }
+    }
+  ]
+}

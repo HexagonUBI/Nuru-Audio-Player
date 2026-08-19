@@ -95,4 +95,9 @@ export type TimerState =
   | { kind: 'running'; endsAt: number; totalMs: number }
   | { kind: 'finished' };
 
+export const SCHEDULE_SLOTS = 48;
+export const SLOT_MINUTES = 24 * 60 / SCHEDULE_SLOTS;
+
+export type Schedule = Array<string | null>;
+
 export const DEV_PLACEHOLDER_LICENCE = 'UNLICENSED-DEV-PLACEHOLDER';

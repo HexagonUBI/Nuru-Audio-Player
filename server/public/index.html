@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nuru Workshop</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app-window">
+      <header class="titlebar">
+        <span class="mark"></span>
+        <span class="wordmark">Nuru</span>
+        <span class="wordmark-sub">Workshop</span>
+        <span class="dev-chip" id="mode-chip" hidden></span>
+        <div class="tb-right" id="hdr-right"></div>
+      </header>
+
+      <div class="app-body">
+        <aside class="rail">
+          <nav class="rail-nav" id="nav">
+            <span class="rail-head">Library</span>
+            <a href="#/browse" data-nav="browse">Soundscapes</a>
+            <a href="#/mixtapes" data-nav="mixtapes">Mixtapes</a>
+
+            <span class="rail-head">You</span>
+            <a href="#/upload" data-nav="upload">Upload</a>
+            <a href="#/mine" data-nav="mine">My uploads</a>
+
+            <span class="rail-head mod-only" hidden>Moderation</span>
+            <a href="#/mod" data-nav="mod" class="mod-only" hidden>
+              Queue <span class="pip" id="pip-queue" hidden></span>
+            </a>
+
+            <span class="rail-head">Help</span>
+            <a href="#/rules" data-nav="rules">Rules</a>
+          </nav>
+          <div class="rail-foot" id="rail-foot"></div>
+        </aside>
+
+        <main class="stage" id="view"></main>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

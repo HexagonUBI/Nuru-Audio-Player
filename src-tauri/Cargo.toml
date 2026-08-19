@@ -1,6 +1,6 @@
 [package]
 name = "nuru"
-version = "0.0.0"
+version = "0.0.1"
 description = "Play any combination of ambient sounds, seamlessly looped."
 authors = ["SimpleFox"]
 edition = "2021"
@@ -26,8 +26,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 # scripts/patch-version-resource.mjs restamps the exe after linking and before
 # bundling, and that is what actually lands. Kept in step by sync-version.mjs.
 [package.metadata.winresource]
-FileVersion = "0.0.0.7"
-ProductVersion = "0.0.0.7"
+FileVersion = "0.0.1.6"
+ProductVersion = "0.0.1.6"
 ProductName = "Nuru"
 CompanyName = "SimpleFox"
 FileDescription = "Nuru - ambient sound mixer"

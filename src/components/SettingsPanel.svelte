@@ -16,6 +16,7 @@
   const LINKS = [
     { name: 'Website', url: 'https://hexagonubi.github.io/Nuru-Audio-Player/', icon: 'globe', solid: false },
     { name: 'GitHub', url: 'https://github.com/HexagonUBI/Nuru-Audio-Player', icon: 'github', solid: true },
+    { name: 'Ko-fi', url: 'https://ko-fi.com/simplefox', icon: 'kofi', solid: false },
   ] as const;
 
   const SIZES = [
@@ -27,6 +28,7 @@
 
   let unshippable = $state<string[]>([]);
   let checking = $state(false);
+
   $effect(() => {
     void api.unshippableSounds().then((ids) => (unshippable = ids));
   });
@@ -71,11 +73,34 @@
   <section>
     <h3>Behaviour</h3>
     <label class="toggle">
-      <input type="checkbox" bind:checked={nuru.restoreOnLaunch} />
+      <input
+        type="checkbox"
+        checked={nuru.restoreOnLaunch}
+        onchange={(e) => nuru.setRestoreOnLaunch((e.currentTarget as HTMLInputElement).checked)}
+      />
       <span class="track"><span class="knob"></span></span>
       <span class="text">
         Restore the last mix on launch
         <em>Loads the sounds you had going, paused.</em>
+      </span>
+    </label>
+  </section>
+
+  <section>
+    <h3>Cozy Mode</h3>
+    <label class="toggle">
+      <input
+        type="checkbox"
+        checked={nuru.sceneFollowsVolume}
+        onchange={(e) => nuru.setSceneFollowsVolume((e.currentTarget as HTMLInputElement).checked)}
+      />
+      <span class="track"><span class="knob"></span></span>
+      <span class="text">
+        Scene follows each fader
+        <em>
+          Rain at 20 gives a drizzle, rain at 100 gives a downpour. Turn this off and any
+          sound that is on counts the same.
+        </em>
       </span>
     </label>
   </section>
@@ -191,6 +216,14 @@
         </button>
       {/each}
     </div>
+  </section>
+
+  <section>
+    <h3>Credits</h3>
+    <button class="u-pressable wide-ghost" onclick={() => (nuru.activePanel = 'credits')}>
+      <Icon name="notes" size={14} />
+      <span>Who made these sounds</span>
+    </button>
   </section>
 
   {#if unshippable.length || IS_PREVIEW}
@@ -384,6 +417,7 @@
     background: rgba(255, 255, 255, 0.1);
   }
 
+  .wide-ghost,
   .whats-new {
     display: flex;
     align-items: center;
@@ -398,6 +432,7 @@
     background: rgba(255, 255, 255, 0.04);
     box-shadow: inset 0 0 0 1px var(--line-soft);
   }
+  .wide-ghost:hover,
   .whats-new:hover:not(:disabled),
   .whats-new:focus-visible:not(:disabled) {
     color: var(--ink);
@@ -522,6 +557,7 @@
     color: var(--ink-40);
     line-height: 1.65;
   }
+
 
   .warn h3 {
     color: var(--nuru);
