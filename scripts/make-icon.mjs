@@ -7,7 +7,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE = join(ROOT, 'resources', 'logo.svg');
 const ICONS = join(ROOT, 'src-tauri', 'icons');
 
-const PAD = 0.13;
+const PAD = 0.0;
 const ICO_SIZES = [16, 24, 32, 48, 64, 128, 256];
 
 const PNGS = [

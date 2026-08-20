@@ -39,3 +39,4 @@ desktop.ini
 
 # local sound database (dev only)
 /server/data
+/server
