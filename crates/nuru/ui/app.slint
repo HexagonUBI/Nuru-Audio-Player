@@ -1,0 +1,453 @@
+import { Theme } from "theme.slint";
+import { TitleBar } from "titlebar.slint";
+import { Mixer } from "mixer.slint";
+import { SoundGrid } from "grid.slint";
+import { MixesPanel } from "mixes.slint";
+import { TimersPanel } from "timers.slint";
+import { SettingsPanel } from "settings.slint";
+import { CreditsPanel, ChangelogPanel, Toasts } from "extras.slint";
+import { CozyView, CozyTile } from "cozy.slint";
+import { TileData, GroupData, ChipData, LayerData } from "types.slint";
+import { PresetData, SlotData, ToastData, EntryData, CreditData } from "panel-types.slint";
+import { Effects } from "effects.slint";
+
+export { TileData, GroupData, ChipData, LayerData, PresetData, SlotData, ToastData, EntryData, CreditData, CozyTile, Effects, Theme }
+
+export component AppWindow inherits Window {
+    title: "Nuru";
+    icon: @image-url("assets/icon.png");
+    no-frame: true;
+    background: Theme.s-800;
+    preferred-width: 1180px;
+    preferred-height: 720px;
+    min-width: 940px;
+    min-height: 600px;
+    default-font-family: Theme.ui-font;
+    default-font-size: 13px;
+
+    in property <string> version;
+    in property <string> channel;
+    in property <[GroupData]> groups;
+    in property <[ChipData]> chips;
+    in property <string> empty-text;
+    in property <[LayerData]> layers;
+    in property <float> master: 0.6;
+    in property <bool> playing: true;
+    in property <bool> awake: true;
+    in property <string> update;
+    in property <length> tile-size: 216px;
+    in property <length> tile-gap: 14px;
+    in property <length> tile-radius: 16px;
+    in property <length> tile-label: 22px;
+    in-out property <string> search;
+    in-out property <string> panel;
+
+    in property <[ToastData]> toasts;
+
+    in property <[PresetData]> presets;
+    in property <int> playing-count;
+
+    in property <bool> timer-running;
+    in property <string> timer-text;
+    in property <float> timer-progress;
+    in property <bool> schedule-on;
+    in property <[SlotData]> slots;
+    in property <int> live-slot;
+    in property <string> brush-id;
+    in property <string> brush-name;
+    in property <color> now-color;
+    in property <string> now-name;
+    in property <string> now-until;
+    in property <string> next-line;
+    in property <float> hours-filled;
+    in property <string> filled-label;
+    in-out property <int> timers-tab;
+
+    in property <string> theme-id;
+    in property <string> tile-size-id;
+    in property <bool> restore;
+    in property <bool> follows;
+    in property <[string]> devices;
+    in property <string> device;
+    in property <string> playing-through;
+    in property <[EntryData]> available-notes;
+    in property <string> update-status;
+    in property <bool> checking;
+    in property <bool> auto-update;
+    in property <int> placeholders;
+
+    in property <[CreditData]> credits;
+    in property <int> sound-count;
+    in property <int> pack-count;
+
+    in property <string> changelog-version;
+    in property <[EntryData]> changelog-entries;
+
+    in-out property <bool> cozy;
+    in property <bool> cozy-shown;
+    in property <bool> cozy-ready;
+    in property <bool> cozy-covered;
+    in property <[CozyTile]> cozy-tiles;
+    in property <image> cozy-flash;
+    in property <float> cozy-flash-level;
+
+    callback toggle-tile(int);
+    callback chip-clicked(ChipData);
+    callback toggle-group(string);
+    callback search-changed(string);
+    callback set-volume(string, float);
+    callback set-master(float);
+    callback remove-layer(string);
+    callback stop-all();
+    callback toggle-playing();
+    callback update-clicked();
+    callback drag-window();
+    callback minimize-window();
+    callback toggle-maximize();
+    callback close-window();
+    callback panel-opened(string);
+
+    callback save-mix(string);
+    callback load-mix(string);
+    callback delete-mix(string);
+
+    callback start-timer(int);
+    callback cancel-timer();
+    callback set-schedule(bool);
+    callback pick-brush(string);
+    callback paint-begin(int);
+    callback paint-extend(int);
+    callback paint-finish();
+    callback clear-schedule();
+
+    callback set-theme(string);
+    callback set-tile-size(string);
+    callback set-restore(bool);
+    callback set-follows(bool);
+    callback set-device(string);
+    callback check-update();
+    callback whats-new();
+    callback set-auto-update(bool);
+    callback open-link(string);
+
+    callback changelog-done();
+    callback cozy-toggled(bool);
+    callback cozy-resized();
+
+    changed search => {
+        root.search-changed(root.search);
+    }
+
+    changed panel => {
+        root.panel-opened(root.panel);
+    }
+
+    changed cozy => {
+        root.cozy-toggled(root.cozy);
+    }
+
+    function toggle-panel(name: string) {
+        root.panel = root.panel == name ? "" : name;
+    }
+
+    keys := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.F11) {
+                root.cozy = !root.cozy;
+                return accept;
+            }
+            if (event.text == Key.Escape) {
+                if (root.cozy) {
+                    root.cozy = false;
+                    return accept;
+                }
+                if (root.panel != "") {
+                    root.panel = root.panel == "credits" ? "settings" : "";
+                    return accept;
+                }
+                return reject;
+            }
+            if (event.text == " ") {
+                root.toggle-playing();
+                return accept;
+            }
+            if (event.text == "/") {
+                grid.focus-search();
+                return accept;
+            }
+            reject
+        }
+
+        VerticalLayout {
+            visible: !root.cozy-covered;
+
+            TitleBar {
+                vertical-stretch: 0;
+                version: root.version;
+                pulse: root.playing && root.layers.length > 0 && root.awake;
+                maximized: root.maximized;
+                update: root.update;
+                panel: root.panel;
+                timer-running: root.timer-running;
+                timer-text: root.timer-text;
+                update-clicked => {
+                    root.update-clicked();
+                }
+                drag => {
+                    root.drag-window();
+                }
+                minimize => {
+                    root.minimize-window();
+                }
+                toggle-maximize => {
+                    root.toggle-maximize();
+                }
+                close => {
+                    root.close-window();
+                }
+                open-timers => {
+                    root.toggle-panel("timers");
+                }
+                open-settings => {
+                    root.toggle-panel("settings");
+                }
+                open-cozy => {
+                    root.cozy = true;
+                }
+            }
+
+            HorizontalLayout {
+                vertical-stretch: 1;
+
+                Mixer {
+                    horizontal-stretch: 0;
+                    layers: root.layers;
+                    master: root.master;
+                    playing: root.playing;
+                    set-master(v) => {
+                        root.set-master(v);
+                    }
+                    set-volume(id, v) => {
+                        root.set-volume(id, v);
+                    }
+                    remove(id) => {
+                        root.remove-layer(id);
+                    }
+                    stop-all => {
+                        root.stop-all();
+                    }
+                    toggle-playing => {
+                        root.toggle-playing();
+                    }
+                    open-save => {
+                        root.panel = "mixes";
+                    }
+                    open-mixes => {
+                        root.panel = "mixes";
+                    }
+                }
+
+                grid := SoundGrid {
+                    horizontal-stretch: 1;
+                    groups: root.groups;
+                    chips: root.chips;
+                    empty-text: root.empty-text;
+                    tile-size: root.tile-size;
+                    tile-gap: root.tile-gap;
+                    tile-radius: root.tile-radius;
+                    tile-label: root.tile-label;
+                    search <=> root.search;
+                    toggle(i) => {
+                        root.toggle-tile(i);
+                    }
+                    chip-clicked(chip) => {
+                        root.chip-clicked(chip);
+                    }
+                    toggle-group(name) => {
+                        root.toggle-group(name);
+                    }
+                }
+            }
+        }
+    }
+
+    if root.panel == "mixes": MixesPanel {
+        width: root.width;
+        height: root.height;
+        presets: root.presets;
+        playing-count: root.playing-count;
+        close => {
+            root.panel = "";
+        }
+        save(name) => {
+            root.save-mix(name);
+        }
+        load(id) => {
+            root.load-mix(id);
+        }
+        delete(id) => {
+            root.delete-mix(id);
+        }
+    }
+
+    if root.panel == "timers": TimersPanel {
+        width: root.width;
+        height: root.height;
+        running: root.timer-running;
+        progress: root.timer-progress;
+        remaining: root.timer-text;
+        schedule-on: root.schedule-on;
+        presets: root.presets;
+        slots: root.slots;
+        live-slot: root.live-slot;
+        brush-id: root.brush-id;
+        brush-name: root.brush-name;
+        now-color: root.now-color;
+        now-name: root.now-name;
+        now-until: root.now-until;
+        next-line: root.next-line;
+        hours-filled: root.hours-filled;
+        filled-label: root.filled-label;
+        tab <=> root.timers-tab;
+        close => {
+            root.panel = "";
+        }
+        start(m) => {
+            root.start-timer(m);
+            root.panel = "";
+        }
+        cancel => {
+            root.cancel-timer();
+        }
+        set-schedule(on) => {
+            root.set-schedule(on);
+        }
+        pick(id) => {
+            root.pick-brush(id);
+        }
+        begin(i) => {
+            root.paint-begin(i);
+        }
+        extend(i) => {
+            root.paint-extend(i);
+        }
+        finish => {
+            root.paint-finish();
+        }
+        clear-all => {
+            root.clear-schedule();
+        }
+    }
+
+    if root.panel == "settings": SettingsPanel {
+        width: root.width;
+        height: root.height;
+        theme-id: root.theme-id;
+        tile-size: root.tile-size-id;
+        restore: root.restore;
+        follows: root.follows;
+        devices: root.devices;
+        device: root.device;
+        playing-through: root.playing-through;
+        version: root.version;
+        channel: root.channel;
+        available: root.update;
+        available-notes: root.available-notes;
+        update-status: root.update-status;
+        checking: root.checking;
+        auto-update: root.auto-update;
+        placeholders: root.placeholders;
+        close => {
+            root.panel = "";
+        }
+        set-theme(t) => {
+            root.set-theme(t);
+        }
+        set-tile-size(t) => {
+            root.set-tile-size(t);
+        }
+        set-restore(b) => {
+            root.set-restore(b);
+        }
+        set-follows(b) => {
+            root.set-follows(b);
+        }
+        set-device(d) => {
+            root.set-device(d);
+        }
+        check => {
+            root.check-update();
+        }
+        install => {
+            root.update-clicked();
+        }
+        whats-new => {
+            root.whats-new();
+        }
+        set-auto-update(b) => {
+            root.set-auto-update(b);
+        }
+        open-link(url) => {
+            root.open-link(url);
+        }
+        credits => {
+            root.panel = "credits";
+        }
+    }
+
+    if root.panel == "credits": CreditsPanel {
+        width: root.width;
+        height: root.height;
+        credits: root.credits;
+        sounds: root.sound-count;
+        packs: root.pack-count;
+        close => {
+            root.panel = "settings";
+        }
+        back => {
+            root.panel = "settings";
+        }
+    }
+
+    if root.panel == "changelog": ChangelogPanel {
+        width: root.width;
+        height: root.height;
+        release-version: root.changelog-version;
+        entries: root.changelog-entries;
+        close => {
+            root.changelog-done();
+        }
+        done => {
+            root.changelog-done();
+        }
+    }
+
+    Toasts {
+        width: root.width;
+        height: root.height;
+        toasts: root.toasts;
+    }
+
+    if root.cozy-shown: CozyView {
+        width: root.width;
+        height: root.height;
+        tiles: root.cozy-tiles;
+        flash: root.cozy-flash;
+        flash-level: root.cozy-flash-level;
+        ready: root.cozy-ready;
+        layers: root.layers;
+        playing: root.playing;
+        toggle-playing => {
+            root.toggle-playing();
+        }
+        set-volume(id, v) => {
+            root.set-volume(id, v);
+        }
+        leave => {
+            root.cozy = false;
+        }
+        resized => {
+            root.cozy-resized();
+        }
+    }
+}

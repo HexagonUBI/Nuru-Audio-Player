@@ -1,0 +1,29 @@
+export struct TileData {
+    index: int,
+    name: string,
+    accent: color,
+    cover: image,
+    active-cover: image,
+    active: bool,
+    loading: bool,
+}
+
+export struct GroupData {
+    name: string,
+    collapsed: bool,
+    tiles: [TileData],
+}
+
+export struct ChipData {
+    label: string,
+    tag: string,
+    on: bool,
+    more: bool,
+}
+
+export struct LayerData {
+    id: string,
+    name: string,
+    accent: color,
+    volume: float,
+}

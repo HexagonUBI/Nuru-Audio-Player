@@ -1,0 +1,382 @@
+import { Theme, Icons } from "theme.slint";
+import { Icon } from "icon.slint";
+import { Fader } from "fader.slint";
+import { Effects, Shadow } from "effects.slint";
+import { LayerData } from "types.slint";
+
+component GhostButton {
+    in property <string> icon;
+    in property <string> label;
+    in property <bool> enabled: true;
+    callback clicked;
+    height: 31px;
+
+    private property <bool> hot: root.enabled && touch.has-hover;
+
+    Rectangle {
+        border-radius: 7px;
+        background: root.hot ? #ffffff17 : #ffffff0a;
+        animate background { duration: Theme.dur-2; easing: ease-out; }
+    }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+        alignment: start;
+        opacity: root.enabled ? 1 : 0.32;
+
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                commands: root.icon;
+                size: 15px;
+                tint: root.hot ? Theme.ink : Theme.ink-60;
+            }
+        }
+
+        Text {
+            text: root.label;
+            font-size: 12px;
+            font-weight: 600;
+            color: root.hot ? Theme.ink : Theme.ink-60;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component ValueRow {
+    in property <string> name;
+    in property <float> value;
+    in property <bool> strong: false;
+    height: 20px;
+
+    HorizontalLayout {
+        spacing: 8px;
+
+        Text {
+            horizontal-stretch: 1;
+            text: root.name;
+            font-size: 12px;
+            font-weight: 600;
+            color: root.strong ? Theme.ink : Theme.ink-80;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        Text {
+            horizontal-stretch: 0;
+            text: Math.round(root.value * 100);
+            font-size: 11px;
+            color: Theme.ink-40;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component LayerRow inherits TouchArea {
+    in property <LayerData> layer;
+    callback set-volume(float);
+    callback remove();
+
+    VerticalLayout {
+        spacing: 8px;
+
+        HorizontalLayout {
+            spacing: 8px;
+            height: 20px;
+
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 7px;
+                    height: 7px;
+
+                    Shadow {
+                        source: Effects.dot-glow;
+                        pad: Effects.dot-glow-pad;
+                        spread: -1px;
+                        box-width: parent.width;
+                        box-height: parent.height;
+                        colorize: root.layer.accent;
+                    }
+
+                    Rectangle {
+                        border-radius: 3.5px;
+                        background: root.layer.accent;
+                    }
+                }
+            }
+
+            ValueRow {
+                horizontal-stretch: 1;
+                name: root.layer.name;
+                value: root.layer.volume;
+                strong: true;
+            }
+
+            remove := Rectangle {
+                width: 20px;
+                height: 20px;
+                border-radius: 4px;
+                background: remove-touch.has-hover ? #ffffff14 : transparent;
+                opacity: root.has-hover ? 1 : 0;
+                animate opacity { duration: Theme.dur-2; easing: ease-out; }
+
+                Icon {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    commands: Icons.close;
+                    size: 13px;
+                    weight: 2;
+                    tint: remove-touch.has-hover ? Theme.ink : Theme.ink-25;
+                }
+
+                remove-touch := TouchArea {
+                    clicked => {
+                        root.remove();
+                    }
+                }
+            }
+        }
+
+        Fader {
+            value: root.layer.volume;
+            accent: root.layer.accent;
+            changed(v) => {
+                root.set-volume(v);
+            }
+        }
+    }
+}
+
+export component Mixer inherits Rectangle {
+    in property <[LayerData]> layers;
+    in property <float> master;
+    in property <bool> playing;
+    callback set-master(float);
+    callback set-volume(string, float);
+    callback remove(string);
+    callback stop-all();
+    callback toggle-playing();
+    callback open-save();
+    callback open-mixes();
+    width: Theme.mixer-w;
+    background: @linear-gradient(180deg, Theme.s-700 0%, Theme.s-800 42%);
+
+    private property <bool> can-play: root.layers.length > 0;
+    private property <bool> live: root.playing && root.can-play;
+
+    Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+        background: Theme.line;
+    }
+
+    VerticalLayout {
+        HorizontalLayout {
+            vertical-stretch: 0;
+            padding-left: 20px;
+            padding-right: 20px;
+            padding-top: 20px;
+            padding-bottom: 12px;
+            height: 60px;
+
+            Text {
+                horizontal-stretch: 1;
+                text: "Mixer";
+                font-family: Theme.display-font;
+                font-size: 17px;
+                font-weight: 600;
+                letter-spacing: -0.17px;
+                color: Theme.ink;
+                vertical-alignment: center;
+            }
+
+            if root.can-play: VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 28px;
+                    height: 28px;
+                    border-radius: 7px;
+                    background: trash.has-hover ? Theme.danger-dim : transparent;
+
+                    Icon {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        commands: Icons.trash;
+                        size: 15px;
+                        tint: trash.has-hover ? Theme.danger : Theme.ink-40;
+                    }
+
+                    trash := TouchArea {
+                        clicked => {
+                            root.stop-all();
+                        }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            vertical-stretch: 0;
+            padding-left: 20px;
+            padding-right: 20px;
+            padding-bottom: 16px;
+            spacing: 8px;
+
+            ValueRow {
+                name: "Master";
+                value: root.master;
+            }
+
+            Fader {
+                value: root.master;
+                changed(v) => {
+                    root.set-master(v);
+                }
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 0;
+            height: 1px;
+            background: Theme.line-soft;
+        }
+
+        Flickable {
+            vertical-stretch: 1;
+            content-height: list.preferred-height;
+
+            list := VerticalLayout {
+                padding-left: 20px;
+                padding-right: 20px;
+                padding-top: 16px;
+                padding-bottom: 16px;
+                spacing: 16px;
+                alignment: start;
+
+                for layer in root.layers: LayerRow {
+                    layer: layer;
+                    set-volume(v) => {
+                        root.set-volume(layer.id, v);
+                    }
+                    remove => {
+                        root.remove(layer.id);
+                    }
+                }
+
+                if !root.can-play: Text {
+                    text: "Pick a sound to start. Layer as many as you like - they all loop and mix together.";
+                    font-size: 13px;
+                    color: Theme.ink-40;
+                    wrap: word-wrap;
+                }
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 0;
+            height: 1px;
+            background: Theme.line-soft;
+        }
+
+        HorizontalLayout {
+            vertical-stretch: 0;
+            padding-left: 16px;
+            padding-right: 20px;
+            padding-top: 16px;
+            padding-bottom: 20px;
+            spacing: 8px;
+
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 60px;
+                    height: 60px;
+                    border-radius: 30px;
+                    background: root.live ? Theme.nuru-ghost : transparent;
+                    animate background { duration: Theme.dur-2; easing: ease-out; }
+
+                    Rectangle {
+                        x: 4px;
+                        y: 4px;
+                        width: 52px;
+                        height: 52px;
+                        opacity: root.can-play ? 1 : 0.32;
+
+                        Shadow {
+                            source: Effects.round-rest;
+                            pad: Effects.round-rest-pad;
+                            dy: 8px;
+                            box-width: parent.width;
+                            box-height: parent.height;
+                            colorize: #00000047;
+                        }
+
+                        Shadow {
+                            source: Effects.round-tight;
+                            pad: Effects.round-tight-pad;
+                            dy: 2px;
+                            box-width: parent.width;
+                            box-height: parent.height;
+                            colorize: #0000004d;
+                        }
+
+                        Rectangle {
+                            border-radius: 26px;
+                            background: transport.has-hover && root.can-play ? #ffffff : Theme.ink;
+                        }
+
+                        Icon {
+                            x: (parent.width - self.width) / 2 + (root.live ? 0 : 1px);
+                            y: (parent.height - self.height) / 2;
+                            commands: root.live ? Icons.pause : Icons.play;
+                            size: 20px;
+                            weight: 2.2;
+                            filled: !root.live;
+                            tint: Theme.ink-inverse;
+                        }
+
+                        transport := TouchArea {
+                            enabled: root.can-play;
+                            clicked => {
+                                root.toggle-playing();
+                            }
+                        }
+                    }
+                }
+            }
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                spacing: 8px;
+
+                GhostButton {
+                    icon: Icons.save;
+                    label: "Save mix";
+                    enabled: root.can-play;
+                    clicked => {
+                        root.open-save();
+                    }
+                }
+
+                GhostButton {
+                    icon: Icons.stack;
+                    label: "Mixes";
+                    clicked => {
+                        root.open-mixes();
+                    }
+                }
+            }
+        }
+    }
+}

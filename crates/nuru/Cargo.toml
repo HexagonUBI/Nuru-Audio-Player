@@ -1,0 +1,20 @@
+[package]
+name = "nuru"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+log = "0.4"
+nuru-core = { path = "../nuru-core" }
+resvg = { version = "0.48.1", default-features = false }
+slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "accessibility", "backend-winit", "renderer-software", "unstable-winit-030"] }
+
+[build-dependencies]
+slint-build = "1.18"
+winresource = "0.1"

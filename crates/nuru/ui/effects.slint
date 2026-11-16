@@ -1,0 +1,34 @@
+export global Effects {
+    in property <image> tile-mask;
+    in property <image> tile-tight;
+    in property <length> tile-tight-pad;
+    in property <image> tile-rest;
+    in property <length> tile-rest-pad;
+    in property <image> tile-lifted;
+    in property <length> tile-lifted-pad;
+    in property <image> tile-glow;
+    in property <length> tile-glow-pad;
+    in property <image> round-tight;
+    in property <length> round-tight-pad;
+    in property <image> round-rest;
+    in property <length> round-rest-pad;
+    in property <image> pill-glow;
+    in property <length> pill-glow-pad;
+    in property <image> dot-glow;
+    in property <length> dot-glow-pad;
+    in property <image> thumb-shadow;
+    in property <length> thumb-shadow-pad;
+}
+
+export component Shadow inherits Image {
+    in property <length> pad;
+    in property <length> spread: 0px;
+    in property <length> dx: 0px;
+    in property <length> dy: 0px;
+    in property <length> box-width;
+    in property <length> box-height;
+    x: self.dx - self.pad - self.spread;
+    y: self.dy - self.pad - self.spread;
+    width: self.box-width + 2 * (self.pad + self.spread);
+    height: self.box-height + 2 * (self.pad + self.spread);
+}

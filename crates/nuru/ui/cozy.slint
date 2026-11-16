@@ -1,0 +1,176 @@
+import { Theme, Icons } from "theme.slint";
+import { Icon } from "icon.slint";
+import { Fader } from "fader.slint";
+import { LayerData } from "types.slint";
+
+export struct CozyTile {
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+    image: image,
+}
+
+
+component Round inherits TouchArea {
+    in property <string> icon;
+    in property <bool> filled: false;
+    in property <length> icon-size: 18px;
+    in property <float> weight: 1.7;
+    width: 42px;
+    height: 42px;
+
+    Rectangle {
+        border-radius: 21px;
+        background: root.has-hover ? #ffffff2e : #ffffff1a;
+    }
+
+    Icon {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        commands: root.icon;
+        size: root.icon-size;
+        filled: root.filled;
+        weight: root.weight;
+        tint: Theme.ink;
+    }
+}
+
+export component CozyView {
+    in property <[CozyTile]> tiles;
+    in property <image> flash;
+    in property <float> flash-level;
+    in property <bool> ready;
+    in property <[LayerData]> layers;
+    in property <bool> playing;
+    callback toggle-playing();
+    callback set-volume(string, float);
+    callback leave();
+    callback resized();
+
+    changed width => {
+        root.resized();
+    }
+    changed height => {
+        root.resized();
+    }
+
+    opacity: root.ready ? 1 : 0;
+    animate opacity { duration: 320ms; easing: ease-out; }
+
+    TouchArea {}
+
+    for tile in root.tiles: Image {
+        x: tile.x;
+        y: tile.y;
+        width: tile.w;
+        height: tile.h;
+        source: tile.image;
+        image-fit: fill;
+    }
+
+    if root.flash-level > 0: Image {
+        width: root.width;
+        height: root.height;
+        source: root.flash;
+        image-fit: fill;
+        opacity: root.flash-level;
+    }
+
+    bar := Rectangle {
+        private property <length> room: Math.min(960px, root.width - 48px);
+        width: Math.min(row.preferred-width, self.room);
+        height: row.preferred-height;
+        x: (root.width - self.width) / 2;
+        y: root.height - 28px - self.height + (root.ready ? 0px : 20px);
+        opacity: hover.has-hover ? 1 : 0.28;
+        animate y { duration: 320ms; easing: cubic-bezier(0.33, 1, 0.68, 1); }
+        animate opacity { duration: Theme.dur-4; easing: ease-out; }
+
+        Rectangle {
+            border-radius: 28px;
+            background: #0c0d109e;
+        }
+
+        hover := TouchArea {
+            row := HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                padding-top: 12px;
+                padding-bottom: 12px;
+                spacing: 16px;
+
+                VerticalLayout {
+                    alignment: center;
+                    Round {
+                        icon: root.playing && root.layers.length > 0 ? Icons.pause : Icons.play;
+                        filled: !(root.playing && root.layers.length > 0);
+                        weight: 2.2;
+                        clicked => {
+                            root.toggle-playing();
+                        }
+                    }
+                }
+
+                faders := Flickable {
+                    horizontal-stretch: 1;
+                    min-width: 0;
+                    preferred-width: strips.preferred-width;
+                    height: strips.preferred-height;
+                    content-width: Math.max(self.width, strips.preferred-width);
+                    interactive: strips.preferred-width > self.width;
+
+                    strips := HorizontalLayout {
+                        width: faders.content-width;
+                        padding: 2px;
+                        spacing: 24px;
+
+                        for layer in root.layers: VerticalLayout {
+                            min-width: 132px;
+                            preferred-width: 132px;
+                            horizontal-stretch: 1;
+                            spacing: 3px;
+
+                            Text {
+                                text: layer.name;
+                                font-size: 11px;
+                                color: Theme.ink-60;
+                                overflow: elide;
+                            }
+
+                            Fader {
+                                value: layer.volume;
+                                accent: layer.accent;
+                                changed(v) => {
+                                    root.set-volume(layer.id, v);
+                                }
+                            }
+                        }
+
+                        if root.layers.length == 0: VerticalLayout {
+                            alignment: center;
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            Text {
+                                text: "Nothing playing";
+                                font-size: 11px;
+                                color: Theme.ink-25;
+                            }
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    Round {
+                        icon: Icons.collapse;
+                        icon-size: 17px;
+                        clicked => {
+                            root.leave();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

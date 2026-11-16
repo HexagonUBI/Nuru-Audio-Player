@@ -1,0 +1,297 @@
+import { Theme, Icons } from "theme.slint";
+import { Icon } from "icon.slint";
+import { Tile } from "tile.slint";
+import { TileData, GroupData, ChipData } from "types.slint";
+import { ScrollBar } from "widgets.slint";
+
+component SearchBox {
+    in-out property <string> text;
+    width: 230px;
+    height: 32px;
+
+    public function focus-input() {
+        input.focus();
+    }
+
+    Rectangle {
+        border-radius: 7px;
+        background: input.has-focus ? #ffffff14 : Theme.field;
+        border-width: input.has-focus ? 1px : 0px;
+        border-color: Theme.line-strong;
+    }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                commands: Icons.search;
+                size: 15px;
+                tint: input.has-focus ? Theme.ink-60 : Theme.ink-40;
+            }
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+
+            if root.text == "": Text {
+                width: parent.width;
+                height: parent.height;
+                text: "Search sounds";
+                font-size: 13px;
+                color: Theme.ink-25;
+                vertical-alignment: center;
+            }
+
+            input := TextInput {
+                width: parent.width;
+                height: parent.height;
+                text <=> root.text;
+                font-size: 13px;
+                color: Theme.ink;
+                vertical-alignment: center;
+                single-line: true;
+            }
+        }
+
+        if root.text != "": VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 18px;
+                height: 18px;
+                border-radius: 9px;
+                background: #ffffff14;
+
+                Icon {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    commands: Icons.close;
+                    size: 12px;
+                    weight: 2;
+                    tint: clear.has-hover ? Theme.ink : Theme.ink-40;
+                }
+
+                clear := TouchArea {
+                    clicked => {
+                        root.text = "";
+                    }
+                }
+            }
+        }
+    }
+}
+
+component Chip inherits TouchArea {
+    in property <ChipData> chip;
+    height: 24px;
+    width: text.preferred-width + 24px;
+
+    Rectangle {
+        border-radius: self.height / 2;
+        background: root.chip.on ? Theme.ink : root.has-hover ? Theme.field : transparent;
+        border-width: root.chip.on ? 0px : 1px;
+        border-color: root.chip.more ? Theme.line-soft : Theme.line;
+    }
+
+    text := Text {
+        x: 12px;
+        y: (parent.height - self.height) / 2;
+        text: root.chip.label;
+        font-size: 11px;
+        letter-spacing: 0.22px;
+        color: root.chip.on ? Theme.ink-inverse : root.chip.more ? (root.has-hover ? Theme.ink-60 : Theme.ink-25) : (root.has-hover ? Theme.ink-80 : Theme.ink-40);
+    }
+}
+
+component GroupHeading {
+    in property <GroupData> group;
+    callback toggle();
+    height: 15px;
+
+    HorizontalLayout {
+        alignment: start;
+        spacing: 8px;
+
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 12px;
+                height: 12px;
+
+                Icon {
+                    commands: root.group.collapsed ? Icons.chevron : Icons.chevron-down;
+                    size: 12px;
+                    weight: 2;
+                    tint: arrow.has-hover ? Theme.ink-60 : Theme.ink-25;
+                }
+
+                arrow := TouchArea {
+                    clicked => {
+                        root.toggle();
+                    }
+                }
+            }
+        }
+
+        Text {
+            text: root.group.name.to-uppercase();
+            font-size: 11px;
+            letter-spacing: 0.88px;
+            color: Theme.ink-40;
+            vertical-alignment: center;
+        }
+
+        Text {
+            text: root.group.tiles.length;
+            font-size: 11px;
+            color: Theme.ink-25;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component TileGrid {
+    in property <[TileData]> tiles;
+    in property <int> cols;
+    in property <length> tile-size;
+    in property <length> tile-gap;
+    in property <length> tile-radius;
+    in property <length> tile-label;
+    callback toggle(int);
+
+    private property <int> rows: Math.ceil(root.tiles.length / root.cols);
+    height: root.rows * root.tile-size + Math.max(0, root.rows - 1) * root.tile-gap;
+
+    for tile[i] in root.tiles: Tile {
+        x: Math.mod(i, root.cols) * (root.tile-size + root.tile-gap);
+        y: Math.floor(i / root.cols) * (root.tile-size + root.tile-gap);
+        data: tile;
+        size: root.tile-size;
+        radius: root.tile-radius;
+        label-size: root.tile-label;
+        clicked => {
+            root.toggle(tile.index);
+        }
+    }
+}
+
+export component SoundGrid inherits Rectangle {
+    in property <[GroupData]> groups;
+    in property <[ChipData]> chips;
+    in property <string> empty-text;
+    in property <length> tile-size: 216px;
+    in property <length> tile-gap: 14px;
+    in property <length> tile-radius: 16px;
+    in property <length> tile-label: 22px;
+    in-out property <string> search;
+    callback toggle(int);
+    callback chip-clicked(ChipData);
+    callback toggle-group(string);
+
+    public function focus-search() {
+        searchbox.focus-input();
+    }
+
+    private property <length> pad-x: 24px;
+    private property <int> cols: Math.max(1, Math.floor((scroll.width - 2 * root.pad-x - 10px + root.tile-gap) / (root.tile-size + root.tile-gap)));
+
+    VerticalLayout {
+        HorizontalLayout {
+            vertical-stretch: 0;
+            padding-left: root.pad-x;
+            padding-right: root.pad-x;
+            padding-top: 16px;
+            padding-bottom: 16px;
+            spacing: 16px;
+
+            searchbox := SearchBox {
+                text <=> root.search;
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 32px;
+                clip: true;
+
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 6px;
+
+                    for chip in root.chips: VerticalLayout {
+                        alignment: center;
+                        Chip {
+                            chip: chip;
+                            clicked => {
+                                root.chip-clicked(chip);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 0;
+            height: 1px;
+            background: Theme.line-soft;
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+
+            scroll := Flickable {
+                content-height: list.preferred-height;
+
+                list := VerticalLayout {
+                    padding-left: root.pad-x;
+                    padding-right: root.pad-x + 10px;
+                    padding-top: 20px;
+                    padding-bottom: 32px;
+                    spacing: 32px;
+                    alignment: start;
+
+                    for group in root.groups: VerticalLayout {
+                        spacing: 12px;
+
+                        GroupHeading {
+                            group: group;
+                            toggle => {
+                                root.toggle-group(group.name);
+                            }
+                        }
+
+                        if !group.collapsed: TileGrid {
+                            tiles: group.tiles;
+                            cols: root.cols;
+                            tile-size: root.tile-size;
+                            tile-gap: root.tile-gap;
+                            tile-radius: root.tile-radius;
+                            tile-label: root.tile-label;
+                            toggle(i) => {
+                                root.toggle(i);
+                            }
+                        }
+                    }
+
+                    if root.empty-text != "": Text {
+                        text: root.empty-text;
+                        font-size: 13px;
+                        color: Theme.ink-40;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+
+            if scroll.content-height > scroll.height: ScrollBar {
+                x: parent.width - 10px;
+                height: parent.height;
+                view-height: scroll.height;
+                content-height: scroll.content-height;
+                content-y <=> scroll.content-y;
+            }
+        }
+    }
+}

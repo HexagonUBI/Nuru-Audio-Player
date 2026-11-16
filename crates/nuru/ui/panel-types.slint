@@ -1,0 +1,33 @@
+export struct PresetData {
+    id: string,
+    name: string,
+    count: int,
+    dots: [color],
+    accent: color,
+}
+
+export struct SlotData {
+    filled: bool,
+    color: color,
+    label: string,
+    name: string,
+}
+
+export struct ToastData {
+    id: int,
+    text: string,
+    error: bool,
+}
+
+export struct EntryData {
+    title: string,
+    text: string,
+}
+
+export struct CreditData {
+    pack: string,
+    licence: string,
+    attribution: string,
+    names: string,
+    dev: bool,
+}

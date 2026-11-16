@@ -1,0 +1,239 @@
+import { Theme, Icons } from "theme.slint";
+import { Icon } from "icon.slint";
+import { Drawer } from "drawer.slint";
+import { NuruMark } from "mark.slint";
+import { QuietButton, SolidButton } from "widgets.slint";
+import { CreditData, EntryData, ToastData } from "panel-types.slint";
+
+export component CreditsPanel inherits Drawer {
+    in property <[CreditData]> credits;
+    in property <int> sounds;
+    in property <int> packs;
+    callback back();
+    title: "Credits";
+    panel-width: 460px;
+
+    Text {
+        text: root.credits.length == 0 ? "No sounds are loaded, so there is nothing to credit yet." : root.sounds + " sounds across " + root.packs + (root.packs == 1 ? " pack" : " packs") + ". Each pack carries its own licence and attribution, read from the pack itself rather than a list kept here.";
+        font-size: 13px;
+        color: Theme.ink-40;
+        wrap: word-wrap;
+    }
+
+    Rectangle {
+        height: 16px;
+    }
+
+    for c in root.credits: VerticalLayout {
+        padding-bottom: 8px;
+
+        Rectangle {
+            border-radius: 11px;
+            background: c.dev ? Theme.danger-dim : #ffffff0a;
+            border-width: 1px;
+            border-color: c.dev ? Theme.danger.with-alpha(0.3) : Theme.line-soft;
+            height: body.preferred-height;
+
+            body := VerticalLayout {
+                padding-left: 14px;
+                padding-right: 14px;
+                padding-top: 12px;
+                padding-bottom: 12px;
+                spacing: 4px;
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: start;
+
+                    Text {
+                        text: c.pack;
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: Theme.ink;
+                        vertical-alignment: center;
+                    }
+
+                    Rectangle {
+                        border-radius: 9px;
+                        background: #ffffff0f;
+                        width: licence.preferred-width + 12px;
+                        height: 18px;
+
+                        licence := Text {
+                            text: c.licence;
+                            font-size: 11px;
+                            color: Theme.ink-40;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                if c.attribution != "": Text {
+                    text: c.attribution;
+                    font-size: 13px;
+                    color: Theme.ink-80;
+                    wrap: word-wrap;
+                }
+
+                Text {
+                    text: c.names;
+                    font-size: 11px;
+                    color: Theme.ink-40;
+                    wrap: word-wrap;
+                }
+
+                if c.dev: Text {
+                    text: "Development material. Must not appear in a public build.";
+                    font-size: 11px;
+                    color: Theme.danger;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        height: 8px;
+    }
+
+    QuietButton {
+        label: "Back to settings";
+        outlined: true;
+        wide: true;
+        clicked => {
+            root.back();
+        }
+    }
+}
+
+export component ChangelogPanel inherits Drawer {
+    in property <string> release-version;
+    in property <[EntryData]> entries;
+    callback done();
+    title: "What's new";
+    panel-width: 460px;
+
+    HorizontalLayout {
+        spacing: 12px;
+        padding-bottom: 16px;
+        alignment: start;
+
+        NuruMark {
+            size: 34px;
+        }
+
+        Text {
+            text: "Nuru " + root.release-version;
+            font-family: Theme.display-font;
+            font-size: 17px;
+            font-weight: 600;
+            color: Theme.ink;
+            vertical-alignment: center;
+        }
+    }
+
+    if root.entries.length == 0: Text {
+        text: "This release came without notes.";
+        font-size: 13px;
+        color: Theme.ink-40;
+    }
+
+    for entry in root.entries: VerticalLayout {
+        spacing: 2px;
+        padding-bottom: 14px;
+
+        Text {
+            text: entry.title;
+            font-size: 13px;
+            font-weight: 600;
+            color: Theme.ink;
+            wrap: word-wrap;
+        }
+
+        Text {
+            text: entry.text;
+            font-size: 13px;
+            color: Theme.ink-60;
+            wrap: word-wrap;
+        }
+    }
+
+    Rectangle {
+        height: 8px;
+    }
+
+    HorizontalLayout {
+        alignment: start;
+        SolidButton {
+            label: "Got it";
+            clicked => {
+                root.done();
+            }
+        }
+    }
+}
+
+component Toast {
+    in property <ToastData> toast;
+    height: 40px;
+    width: Math.min(460px, row.preferred-width + 32px);
+
+    private property <bool> shown: false;
+    init => {
+        self.shown = true;
+    }
+    opacity: self.shown ? 1 : 0;
+    animate opacity { duration: Theme.dur-3; easing: ease-out; }
+
+    Rectangle {
+        border-radius: self.height / 2;
+        background: root.toast.error ? #3a1a1af0 : #1c1e24f0;
+        border-width: 1px;
+        border-color: root.toast.error ? Theme.danger.with-alpha(0.3) : Theme.line;
+    }
+
+    row := HorizontalLayout {
+        x: 16px;
+        spacing: 8px;
+
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                commands: root.toast.error ? Icons.warn : Icons.check;
+                size: 15px;
+                weight: root.toast.error ? 1.7 : 2.2;
+                tint: root.toast.error ? #ffd9d6 : Theme.ink;
+            }
+        }
+
+        Text {
+            text: root.toast.text;
+            font-size: 13px;
+            color: root.toast.error ? #ffd9d6 : Theme.ink;
+            vertical-alignment: center;
+            overflow: elide;
+            max-width: 400px;
+        }
+    }
+}
+
+export component Toasts {
+    in property <[ToastData]> toasts;
+
+    VerticalLayout {
+        x: 0;
+        width: root.width;
+        y: root.height - self.preferred-height - 22px;
+        height: self.preferred-height;
+        spacing: 8px;
+        alignment: end;
+
+        for t in root.toasts: HorizontalLayout {
+            alignment: center;
+            Toast {
+                toast: t;
+            }
+        }
+    }
+}

@@ -1,0 +1,130 @@
+import { Theme, Icons } from "theme.slint";
+import { Icon } from "icon.slint";
+import { ScrollBar } from "widgets.slint";
+
+export component Drawer {
+    in property <string> title;
+    in property <length> panel-width: 420px;
+    in property <bool> gutter: false;
+    callback close();
+
+    private property <bool> shown: false;
+    init => {
+        self.shown = true;
+    }
+
+    TouchArea {
+        clicked => {
+            root.close();
+        }
+
+        Rectangle {
+            background: #06070880;
+            opacity: root.shown ? 1 : 0;
+            animate opacity { duration: Theme.dur-2; easing: ease-out; }
+        }
+    }
+
+    panel := Rectangle {
+        x: root.width - root.panel-width + (root.shown ? 0px : 40px);
+        y: Theme.titlebar-h;
+        width: root.panel-width;
+        height: root.height - Theme.titlebar-h;
+        opacity: root.shown ? 1 : 0;
+        animate x { duration: Theme.dur-4; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+        animate opacity { duration: Theme.dur-3; easing: ease-out; }
+
+        Rectangle {
+            x: -60px;
+            width: 60px;
+            background: @linear-gradient(90deg, #00000000 0%, #00000038 100%);
+        }
+
+        TouchArea {}
+
+        Rectangle {
+            background: @linear-gradient(180deg, Theme.s-700 0%, Theme.s-800 42%);
+        }
+
+        Rectangle {
+            width: 1px;
+            x: 0;
+            background: Theme.line;
+        }
+
+        VerticalLayout {
+            HorizontalLayout {
+                vertical-stretch: 0;
+                padding-left: 20px;
+                padding-right: 16px;
+                padding-top: 20px;
+                padding-bottom: 12px;
+
+                Text {
+                    horizontal-stretch: 1;
+                    text: root.title;
+                    font-family: Theme.display-font;
+                    font-size: 17px;
+                    font-weight: 600;
+                    letter-spacing: -0.17px;
+                    color: Theme.ink;
+                    vertical-alignment: center;
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 28px;
+                        height: 28px;
+                        border-radius: 7px;
+                        background: closer.has-hover ? #ffffff14 : transparent;
+
+                        Icon {
+                            x: (parent.width - self.width) / 2;
+                            y: (parent.height - self.height) / 2;
+                            commands: Icons.close;
+                            size: 15px;
+                            weight: 2;
+                            tint: closer.has-hover ? Theme.ink : Theme.ink-40;
+                        }
+
+                        closer := TouchArea {
+                            clicked => {
+                                root.close();
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                vertical-stretch: 0;
+                height: 1px;
+                background: Theme.line-soft;
+            }
+
+            Rectangle {
+                vertical-stretch: 1;
+
+                flick := Flickable {
+                    content-height: body.preferred-height;
+
+                    body := VerticalLayout {
+                        padding: 20px;
+                        padding-right: root.gutter ? 30px : 20px;
+                        alignment: start;
+                        @children
+                    }
+                }
+
+                if flick.content-height > flick.height: ScrollBar {
+                    x: parent.width - 10px;
+                    height: parent.height;
+                    view-height: flick.height;
+                    content-height: flick.content-height;
+                    content-y <=> flick.content-y;
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,657 @@
+import { Theme, Icons } from "theme.slint";
+import { Icon } from "icon.slint";
+import { Drawer } from "drawer.slint";
+import { QuietButton, SolidButton, Caps, Divider } from "widgets.slint";
+import { EntryData } from "panel-types.slint";
+
+component Section {
+    in property <string> heading;
+    in property <bool> last: false;
+    in property <bool> warn: false;
+
+    VerticalLayout {
+        padding-bottom: root.last ? 12px : 20px;
+        spacing: 12px;
+
+        HorizontalLayout {
+            spacing: 6px;
+            alignment: start;
+            if root.warn: VerticalLayout {
+                alignment: center;
+                Icon {
+                    commands: Icons.warn;
+                    size: 14px;
+                    tint: Theme.ink-40;
+                }
+            }
+            Caps {
+                text: root.heading.to-uppercase();
+            }
+        }
+
+        @children
+    }
+}
+
+component ThemeChoice inherits TouchArea {
+    in property <string> name;
+    in property <color> base;
+    in property <color> accent;
+    in property <bool> on;
+    horizontal-stretch: 1;
+
+    Rectangle {
+        border-radius: 11px;
+        background: root.on ? Theme.nuru-ghost : (root.has-hover ? #ffffff0a : transparent);
+        border-width: root.on ? 1.5px : 1px;
+        border-color: root.on ? Theme.nuru : Theme.line-soft;
+    }
+
+    VerticalLayout {
+        padding-top: 12px;
+        padding-bottom: 12px;
+        spacing: 8px;
+
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 34px;
+                height: 34px;
+                border-radius: 17px;
+                background: root.base;
+
+                Path {
+                    width: 34px;
+                    height: 34px;
+                    viewbox-width: 34;
+                    viewbox-height: 34;
+                    commands: "M 30.6 6.8 A 17 17 0 0 1 6.8 30.6 Z";
+                    fill: root.accent;
+                }
+
+                Rectangle {
+                    border-radius: 17px;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                }
+            }
+        }
+
+        Text {
+            text: root.name;
+            font-size: 11px;
+            line-height-factor: 1.05;
+            color: root.on || root.has-hover ? Theme.ink : Theme.ink-60;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+component SizeChoice inherits TouchArea {
+    in property <string> name;
+    in property <length> preview;
+    in property <bool> on;
+    height: 74px;
+    horizontal-stretch: 1;
+
+    Rectangle {
+        border-radius: 11px;
+        background: root.on ? Theme.nuru-ghost : (root.has-hover ? #ffffff0a : transparent);
+        border-width: root.on ? 1.5px : 1px;
+        border-color: root.on ? Theme.nuru : Theme.line-soft;
+    }
+
+    VerticalLayout {
+        alignment: end;
+        padding: 8px;
+        spacing: 8px;
+
+        HorizontalLayout {
+            alignment: center;
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: root.preview;
+                    height: root.preview;
+                    border-radius: 4px;
+                    background: root.on ? Theme.nuru : Theme.ink-25;
+                }
+            }
+        }
+
+        Text {
+            text: root.name;
+            font-size: 11px;
+            line-height-factor: 1.05;
+            color: root.on || root.has-hover ? Theme.ink : Theme.ink-60;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+component Toggle {
+    in property <bool> on;
+    width: 34px;
+    height: 21px;
+
+    Rectangle {
+        y: 1px;
+        height: 20px;
+        border-radius: 10px;
+        background: root.on ? Theme.nuru : #ffffff1a;
+        animate background { duration: Theme.dur-2; easing: ease-out; }
+    }
+
+    Rectangle {
+        x: root.on ? 17px : 3px;
+        y: 4px;
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        background: root.on ? Theme.ink-inverse : Theme.ink-60;
+        animate x { duration: Theme.dur-3; easing: cubic-bezier(0.34, 1.56, 0.64, 1); }
+        animate background { duration: Theme.dur-2; easing: ease-out; }
+    }
+}
+
+component ToggleRow inherits TouchArea {
+    in property <bool> on;
+    in property <string> label;
+    in property <string> hint;
+
+    HorizontalLayout {
+        spacing: 12px;
+
+        VerticalLayout {
+            alignment: start;
+            Toggle {
+                on: root.on;
+            }
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 2px;
+
+            Text {
+                text: root.label;
+                font-size: 13px;
+                line-height-factor: 1.13;
+                color: Theme.ink-80;
+                wrap: word-wrap;
+            }
+
+            Text {
+                text: root.hint;
+                font-size: 11px;
+                line-height-factor: 1.05;
+                color: Theme.ink-40;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+component Select {
+    in property <[string]> options;
+    in property <string> current;
+    in property <string> empty-label;
+    callback picked(string);
+    height: 40px;
+
+    Rectangle {
+        border-radius: 7px;
+        background: touch.has-hover ? #ffffff14 : Theme.field;
+        border-width: 1px;
+        border-color: Theme.line;
+    }
+
+    HorizontalLayout {
+        padding-left: 11px;
+        padding-right: 11px;
+        spacing: 8px;
+
+        Text {
+            horizontal-stretch: 1;
+            text: root.current == "" ? root.empty-label : root.current;
+            font-size: 13px;
+            color: Theme.ink;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                commands: Icons.chevron-down;
+                size: 12px;
+                weight: 2;
+                tint: Theme.ink-40;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        clicked => {
+            popup.show();
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        y: root.height + 4px;
+        width: root.width;
+
+        Rectangle {
+            border-radius: 7px;
+            background: Theme.s-700;
+            border-width: 1px;
+            border-color: Theme.line-strong;
+        }
+
+        VerticalLayout {
+            padding: 4px;
+
+            for option[i] in [root.empty-label] : Rectangle {
+                height: 30px;
+                border-radius: 5px;
+                background: first.has-hover ? #ffffff14 : transparent;
+                Text {
+                    x: 8px;
+                    text: option;
+                    font-size: 13px;
+                    color: root.current == "" ? Theme.nuru : Theme.ink;
+                    vertical-alignment: center;
+                }
+                first := TouchArea {
+                    clicked => {
+                        root.picked("");
+                    }
+                }
+            }
+
+            for option in root.options: Rectangle {
+                height: 30px;
+                border-radius: 5px;
+                background: pick.has-hover ? #ffffff14 : transparent;
+                Text {
+                    x: 8px;
+                    width: parent.width - 16px;
+                    text: option;
+                    font-size: 13px;
+                    color: root.current == option ? Theme.nuru : Theme.ink;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                pick := TouchArea {
+                    clicked => {
+                        root.picked(option);
+                    }
+                }
+            }
+        }
+    }
+}
+
+component LinkButton inherits TouchArea {
+    in property <string> icon;
+    in property <bool> solid;
+    width: 40px;
+    height: 40px;
+
+    Rectangle {
+        border-radius: 11px;
+        background: root.has-hover ? #ffffff14 : #ffffff0a;
+        border-width: 1px;
+        border-color: Theme.line-soft;
+    }
+
+    Icon {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        commands: root.icon;
+        size: 17px;
+        filled: root.solid;
+        tint: root.has-hover ? Theme.ink : Theme.ink-60;
+    }
+}
+
+export component SettingsPanel inherits Drawer {
+    in property <string> theme-id;
+    in property <string> tile-size;
+    in property <bool> restore;
+    in property <bool> follows;
+    in property <[string]> devices;
+    in property <string> device;
+    in property <string> playing-through;
+    in property <string> version;
+    in property <string> channel;
+    in property <string> available;
+    in property <[EntryData]> available-notes;
+    in property <string> update-status;
+    in property <bool> checking;
+    in property <bool> auto-update;
+    in property <int> placeholders;
+    callback set-theme(string);
+    callback set-tile-size(string);
+    callback set-restore(bool);
+    callback set-follows(bool);
+    callback set-device(string);
+    callback check();
+    callback install();
+    callback whats-new();
+    callback set-auto-update(bool);
+    callback open-link(string);
+    callback credits();
+    title: "Settings";
+    panel-width: 440px;
+    gutter: true;
+
+    Section {
+        heading: "Theme";
+        HorizontalLayout {
+            spacing: 8px;
+            ThemeChoice {
+                name: "Midnight";
+                base: #131417;
+                accent: #ffb454;
+                on: root.theme-id == "midnight";
+                clicked => {
+                    root.set-theme("midnight");
+                }
+            }
+            ThemeChoice {
+                name: "Ember";
+                base: #141110;
+                accent: #ff9d4d;
+                on: root.theme-id == "ember";
+                clicked => {
+                    root.set-theme("ember");
+                }
+            }
+            ThemeChoice {
+                name: "Slate";
+                base: #15161c;
+                accent: #7dd3fc;
+                on: root.theme-id == "slate";
+                clicked => {
+                    root.set-theme("slate");
+                }
+            }
+        }
+    }
+
+    Divider {}
+    Rectangle { height: 20px; }
+
+    Section {
+        heading: "Tile size";
+        HorizontalLayout {
+            spacing: 8px;
+            SizeChoice {
+                name: "Compact";
+                preview: 14px;
+                on: root.tile-size == "compact";
+                clicked => {
+                    root.set-tile-size("compact");
+                }
+            }
+            SizeChoice {
+                name: "Small";
+                preview: 18px;
+                on: root.tile-size == "small";
+                clicked => {
+                    root.set-tile-size("small");
+                }
+            }
+            SizeChoice {
+                name: "Normal";
+                preview: 23px;
+                on: root.tile-size == "normal";
+                clicked => {
+                    root.set-tile-size("normal");
+                }
+            }
+            SizeChoice {
+                name: "Large";
+                preview: 29px;
+                on: root.tile-size == "large";
+                clicked => {
+                    root.set-tile-size("large");
+                }
+            }
+        }
+    }
+
+    Divider {}
+    Rectangle { height: 20px; }
+
+    Section {
+        heading: "Behaviour";
+        ToggleRow {
+            on: root.restore;
+            label: "Restore the last mix on launch";
+            hint: "Loads the sounds you had going, paused.";
+            clicked => {
+                root.set-restore(!root.restore);
+            }
+        }
+    }
+
+    Divider {}
+    Rectangle { height: 20px; }
+
+    Section {
+        heading: "Cozy Mode";
+        ToggleRow {
+            on: root.follows;
+            label: "Scene follows each fader";
+            hint: "Rain at 20 gives a drizzle, rain at 100 gives a downpour. Turn this off and any sound that is on counts the same.";
+            clicked => {
+                root.set-follows(!root.follows);
+            }
+        }
+    }
+
+    Divider {}
+    Rectangle { height: 20px; }
+
+    Section {
+        heading: "Audio";
+        Select {
+            options: root.devices;
+            current: root.device;
+            empty-label: "System default";
+            picked(d) => {
+                root.set-device(d);
+            }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Text {
+                text: "Playing through";
+                font-size: 11px;
+                color: Theme.ink-40;
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.playing-through == "" ? "-" : root.playing-through;
+                font-size: 11px;
+                color: Theme.ink-60;
+                overflow: elide;
+            }
+        }
+        Text {
+            text: "The choice is remembered and falls back to the system default if the device is unplugged. Every sound is decoded from a local lossless file and looped at an exact sample boundary, so nothing streams while it plays.";
+            font-size: 11px;
+            color: Theme.ink-40;
+            wrap: word-wrap;
+        }
+    }
+
+    Divider {}
+    Rectangle { height: 20px; }
+
+    Section {
+        heading: "Updates";
+        Rectangle {
+            border-radius: 11px;
+            background: root.available != "" ? Theme.nuru-ghost : #ffffff0a;
+            border-width: 1px;
+            border-color: root.available != "" ? Theme.nuru.with-alpha(0.5) : Theme.line-soft;
+            height: urow.preferred-height + 24px;
+
+            urow := HorizontalLayout {
+                x: 14px;
+                y: 12px;
+                width: parent.width - 28px;
+                spacing: 12px;
+
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 1px;
+                    alignment: center;
+                    Text {
+                        text: "Nuru " + (root.available != "" ? root.available : root.version);
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: Theme.ink;
+                    }
+                    if root.available == "": Text {
+                        text: root.checking ? "Checking..." : root.update-status;
+                        font-size: 11px;
+                        color: Theme.ink-40;
+                        overflow: elide;
+                    }
+                }
+
+                if root.available != "": SolidButton {
+                    label: "Update now";
+                    clicked => {
+                        root.install();
+                    }
+                }
+
+                if root.available == "": QuietButton {
+                    label: "Check for updates";
+                    enabled: !root.checking;
+                    clicked => {
+                        root.check();
+                    }
+                }
+            }
+        }
+
+        for entry in root.available-notes: VerticalLayout {
+            spacing: 2px;
+            Text {
+                text: entry.title;
+                font-size: 12px;
+                font-weight: 600;
+                color: Theme.ink;
+                wrap: word-wrap;
+            }
+            Text {
+                text: entry.text;
+                font-size: 12px;
+                color: Theme.ink-60;
+                wrap: word-wrap;
+            }
+        }
+
+        QuietButton {
+            label: "What's new";
+            icon: Icons.notes;
+            outlined: true;
+            wide: true;
+            clicked => {
+                root.whats-new();
+            }
+        }
+
+        ToggleRow {
+            on: root.auto-update;
+            label: "Install updates automatically";
+            hint: "Nuru updates itself on launch, without asking.";
+            clicked => {
+                root.set-auto-update(!root.auto-update);
+            }
+        }
+    }
+
+    Divider {}
+    Rectangle { height: 20px; }
+
+    Section {
+        heading: "Links";
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: start;
+            LinkButton {
+                icon: Icons.globe;
+                clicked => {
+                    root.open-link("https://hexagonubi.github.io/Nuru-Audio-Player/");
+                }
+            }
+            LinkButton {
+                icon: Icons.github;
+                solid: true;
+                clicked => {
+                    root.open-link("https://github.com/HexagonUBI/Nuru-Audio-Player");
+                }
+            }
+            LinkButton {
+                icon: Icons.kofi;
+                clicked => {
+                    root.open-link("https://ko-fi.com/simplefox");
+                }
+            }
+        }
+    }
+
+    Divider {}
+    Rectangle { height: 20px; }
+
+    Section {
+        heading: "Credits";
+        last: root.placeholders == 0;
+        QuietButton {
+            label: "Who made these sounds";
+            icon: Icons.notes;
+            outlined: true;
+            wide: true;
+            clicked => {
+                root.credits();
+            }
+        }
+    }
+
+    if root.placeholders > 0: Divider {}
+    if root.placeholders > 0: Rectangle { height: 20px; }
+
+    if root.placeholders > 0: Section {
+        heading: "Development build";
+        warn: true;
+        last: true;
+        Text {
+            text: root.placeholders + " loaded " + (root.placeholders == 1 ? "sound is" : "sounds are") + " development placeholder" + (root.placeholders == 1 ? "" : "s") + " taken from Elpy. They are reference material and must be replaced before Nuru is released.";
+            font-size: 11px;
+            color: Theme.ink-40;
+            wrap: word-wrap;
+        }
+    }
+
+    HorizontalLayout {
+        spacing: 8px;
+        Text {
+            text: "Nuru " + root.version;
+            font-size: 11px;
+            color: Theme.ink-25;
+        }
+        Text {
+            text: root.channel;
+            font-size: 11px;
+            color: Theme.ink-25;
+        }
+    }
+}

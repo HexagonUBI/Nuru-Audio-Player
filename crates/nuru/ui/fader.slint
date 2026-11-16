@@ -1,0 +1,97 @@
+import { Theme } from "theme.slint";
+import { Effects, Shadow } from "effects.slint";
+
+export component Fader {
+    in property <float> value;
+    in property <color> accent: Theme.nuru;
+    callback changed(float);
+    height: 22px;
+
+    private property <bool> engaged: touch.has-hover || touch.pressed;
+    private property <float> shown: Math.clamp(root.value, 0, 1);
+    private property <length> rail-h: root.engaged ? 8px : 6px;
+    private property <length> knob: root.engaged ? 13px : 10.66px;
+
+    Rectangle {
+        width: parent.width;
+        height: root.rail-h;
+        y: (parent.height - self.height) / 2;
+        border-radius: self.height / 2;
+        background: #ffffff12;
+        animate height { duration: Theme.dur-2; easing: ease-out; }
+    }
+
+    fill := Rectangle {
+        x: 0;
+        width: parent.width * root.shown;
+        height: root.rail-h;
+        y: (parent.height - self.height) / 2;
+        animate height { duration: Theme.dur-2; easing: ease-out; }
+
+        Shadow {
+            source: Effects.pill-glow;
+            pad: Effects.pill-glow-pad;
+            spread: -2px;
+            box-width: parent.width;
+            box-height: parent.height;
+            colorize: root.accent;
+        }
+
+        Rectangle {
+            border-radius: parent.height / 2;
+            background: root.accent;
+        }
+    }
+
+    Rectangle {
+        width: 0;
+        height: 0;
+        x: Math.clamp(parent.width * root.shown, 6.5px, parent.width - 6.5px);
+        y: parent.height / 2;
+        opacity: root.engaged ? 1 : 0;
+        animate opacity { duration: Theme.dur-3; easing: ease-out; }
+
+        Rectangle {
+            x: -12.5px;
+            y: -12.5px;
+            width: 25px;
+            height: 25px;
+            border-radius: 12.5px;
+            background: root.accent.with-alpha(0.22);
+        }
+
+        Shadow {
+            source: Effects.thumb-shadow;
+            pad: Effects.thumb-shadow-pad;
+            dx: -root.knob / 2;
+            dy: -root.knob / 2 + 2px;
+            box-width: root.knob;
+            box-height: root.knob;
+            colorize: #0000008c;
+        }
+
+        Rectangle {
+            x: -root.knob / 2;
+            y: -root.knob / 2;
+            width: root.knob;
+            height: root.knob;
+            border-radius: root.knob / 2;
+            background: #ffffff;
+            animate width, height, x, y { duration: Theme.dur-3; easing: ease-out; }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                root.changed(Math.clamp(self.mouse-x / self.width, 0, 1));
+            }
+        }
+        moved => {
+            if (self.pressed) {
+                root.changed(Math.clamp(self.mouse-x / self.width, 0, 1));
+            }
+        }
+    }
+}

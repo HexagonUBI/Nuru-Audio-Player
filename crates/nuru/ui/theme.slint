@@ -1,0 +1,69 @@
+import "fonts/Comfortaa-Variable.ttf";
+
+export global Theme {
+    in-out property <string> name: "midnight";
+
+    out property <color> s-900: root.name == "ember" ? #0a0807 : root.name == "slate" ? #0c0d11 : #0b0c0e;
+    out property <color> s-800: root.name == "ember" ? #141110 : root.name == "slate" ? #15161c : #131417;
+    out property <color> s-700: root.name == "ember" ? #1c1817 : root.name == "slate" ? #1c1e25 : #1a1c20;
+    out property <color> s-600: root.name == "ember" ? #251f1d : root.name == "slate" ? #24262f : #22242a;
+    out property <color> s-500: root.name == "ember" ? #302926 : root.name == "slate" ? #2e313b : #2c2f36;
+    out property <color> s-400: root.name == "ember" ? #40372f : root.name == "slate" ? #3c404c : #3a3e47;
+
+    out property <color> line-soft: #ffffff0d;
+    out property <color> line: #ffffff14;
+    out property <color> line-strong: #ffffff24;
+
+    out property <color> ink: #f3f4f6;
+    out property <color> ink-80: #f3f4f6cc;
+    out property <color> ink-60: #f3f4f699;
+    out property <color> ink-40: #f3f4f666;
+    out property <color> ink-25: #f3f4f640;
+    out property <color> ink-12: #f3f4f61f;
+    out property <color> ink-inverse: #131417;
+
+    out property <color> nuru: root.name == "ember" ? #ff9d4d : root.name == "slate" ? #7dd3fc : #ffb454;
+    out property <color> nuru-bright: root.name == "ember" ? #ffb877 : root.name == "slate" ? #a5e3ff : #ffc978;
+    out property <color> nuru-ghost: root.name == "slate" ? #7dd3fc1f : #ffb4541f;
+
+    out property <color> danger: #ff5f57;
+    out property <color> danger-dim: #ff5f5729;
+
+    out property <color> hover: #ffffff12;
+    out property <color> field: #ffffff0d;
+
+    out property <string> display-font: "Comfortaa";
+    out property <string> ui-font: "Segoe UI";
+
+    out property <length> titlebar-h: 38px;
+    out property <length> mixer-w: 300px;
+
+    out property <duration> dur-1: 90ms;
+    out property <duration> dur-2: 160ms;
+    out property <duration> dur-3: 260ms;
+    out property <duration> dur-4: 420ms;
+}
+
+export global Icons {
+    out property <string> play: "M8 5.5v13l11-6.5-11-6.5Z";
+    out property <string> pause: "M9 5.5v13M15 5.5v13";
+    out property <string> timer: "M12 8.5v4l2.5 2M12 21a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17ZM9.5 2.5h5";
+    out property <string> close: "M6 6l12 12M18 6L6 18";
+    out property <string> minimize: "M5 12h14";
+    out property <string> maximize: "M5.5 5.5h13v13h-13z";
+    out property <string> restore: "M8 8.5V6.5h9.5V16h-2M5.5 8.5h11V19h-11z";
+    out property <string> settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M19.4 14.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.3a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-2.8-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7h-.3a2 2 0 1 1 0-4h.2a1.6 1.6 0 0 0 1.1-2.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 2.7-1.1v-.3a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 2.8 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.3a2 2 0 1 1 0 4h-.2a1.6 1.6 0 0 0-1.4 1Z";
+    out property <string> save: "M5.5 4.5h10l3.5 3.5v11a1 1 0 0 1-1 1h-12a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1ZM8 4.5v5h7v-5M8 19.5v-5.5h8v5.5";
+    out property <string> stack: "M12 3.5 3 8l9 4.5L21 8l-9-4.5ZM3 12.5 12 17l9-4.5M3 16.5 12 21l9-4.5";
+    out property <string> search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM20 20l-4-4";
+    out property <string> trash: "M4.5 6.5h15M9.5 6.5V4.5h5v2M6.5 6.5l1 13h9l1-13M10.5 10v6M13.5 10v6";
+    out property <string> chevron: "M8.5 5.5 15 12l-6.5 6.5";
+    out property <string> chevron-down: "M5.5 8.5 12 15l6.5-6.5";
+    out property <string> check: "M5 12.5 10 17.5 19 7";
+    out property <string> collapse: "M9.5 4.5v5h-5M14.5 19.5v-5h5M9.5 9.5 4 15M14.5 14.5 20 9";
+    out property <string> warn: "M12 9v4.5M12 17v.5M10.3 4.2 2.6 17.5a1.5 1.5 0 0 0 1.3 2.3h16.2a1.5 1.5 0 0 0 1.3-2.3L13.7 4.2a1.5 1.5 0 0 0-2.6 0Z";
+    out property <string> notes: "M6.5 3.5h11v17h-11zM9.5 8.5h5M9.5 12h5M9.5 15.5h3";
+    out property <string> globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.3 9.5h17.4M3.3 14.5h17.4M12 3.1c-2.4 2.4-3.6 5.4-3.6 8.9s1.2 6.5 3.6 8.9c2.4-2.4 3.6-5.4 3.6-8.9s-1.2-6.5-3.6-8.9Z";
+    out property <string> kofi: "M4 8h10.5v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8ZM14.5 9.5h1.9a2.6 2.6 0 0 1 0 5.2h-1.9M7 5.5V3.8M11.5 5.5V3.8";
+    out property <string> github: "M12 1.5A10.5 10.5 0 0 0 8.68 22c.52.1.71-.23.71-.5v-1.94c-2.92.64-3.54-1.25-3.54-1.25-.48-1.22-1.17-1.54-1.17-1.54-.95-.65.07-.64.07-.64 1.06.07 1.61 1.09 1.61 1.09.94 1.6 2.46 1.14 3.06.87.1-.68.37-1.14.66-1.4-2.33-.27-4.78-1.17-4.78-5.2 0-1.15.41-2.09 1.08-2.82-.11-.27-.47-1.34.1-2.79 0 0 .88-.28 2.89 1.08a10 10 0 0 1 5.26 0c2-1.36 2.88-1.08 2.88-1.08.58 1.45.22 2.52.11 2.79.67.73 1.08 1.67 1.08 2.82 0 4.04-2.46 4.93-4.8 5.19.38.33.71.97.71 1.96v2.9c0 .28.19.61.72.51A10.5 10.5 0 0 0 12 1.5Z";
+}

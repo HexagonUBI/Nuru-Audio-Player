@@ -1,0 +1,177 @@
+import { Theme, Icons } from "theme.slint";
+import { Icon } from "icon.slint";
+import { Drawer } from "drawer.slint";
+import { Field, SolidButton } from "widgets.slint";
+import { PresetData } from "panel-types.slint";
+
+component PresetRow inherits TouchArea {
+    in property <PresetData> preset;
+    callback load();
+    callback delete();
+    height: 52px;
+
+    Rectangle {
+        border-radius: 11px;
+        background: root.has-hover ? #ffffff0a : transparent;
+    }
+
+    HorizontalLayout {
+        spacing: 4px;
+
+        TouchArea {
+            horizontal-stretch: 1;
+            clicked => {
+                root.load();
+            }
+
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                spacing: 12px;
+
+                HorizontalLayout {
+                    horizontal-stretch: 0;
+                    spacing: -3px;
+                    for c in root.preset.dots: VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 15px;
+                            height: 15px;
+                            border-radius: 7.5px;
+                            background: Theme.s-700;
+
+                            Rectangle {
+                                x: 2px;
+                                y: 2px;
+                                width: 11px;
+                                height: 11px;
+                                border-radius: 5.5px;
+                                background: c;
+                            }
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 1px;
+                    horizontal-stretch: 1;
+
+                    Text {
+                        text: root.preset.name;
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: Theme.ink;
+                        overflow: elide;
+                    }
+
+                    Text {
+                        text: root.preset.count + (root.preset.count == 1 ? " sound" : " sounds");
+                        font-size: 11px;
+                        color: Theme.ink-40;
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            padding-right: 6px;
+            Rectangle {
+                width: 30px;
+                height: 30px;
+                border-radius: 7px;
+                background: bin.has-hover ? Theme.danger-dim : transparent;
+                opacity: root.has-hover ? 1 : 0;
+
+                Icon {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    commands: Icons.trash;
+                    size: 14px;
+                    tint: bin.has-hover ? Theme.danger : Theme.ink-40;
+                }
+
+                bin := TouchArea {
+                    clicked => {
+                        root.delete();
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component MixesPanel inherits Drawer {
+    in property <[PresetData]> presets;
+    in property <int> playing-count;
+    callback save(string);
+    callback load(string);
+    callback delete(string);
+    title: "Mixes";
+    panel-width: 420px;
+
+    private property <string> name;
+    private property <bool> can-save: root.playing-count > 0 && root.name != "";
+
+    HorizontalLayout {
+        spacing: 8px;
+        padding-bottom: 12px;
+
+        field := Field {
+            horizontal-stretch: 1;
+            text <=> root.name;
+            enabled: root.playing-count > 0;
+            placeholder: root.playing-count > 0 ? "Name this mix" : "Play something first";
+            accepted => {
+                if (root.can-save) {
+                    root.save(root.name);
+                    root.name = "";
+                }
+            }
+        }
+
+        SolidButton {
+            label: "Save";
+            pad-x: 16px;
+            pad-y: 9px;
+            enabled: root.can-save;
+            clicked => {
+                root.save(root.name);
+                root.name = "";
+            }
+        }
+    }
+
+    if root.playing-count > 0: Text {
+        text: root.playing-count + (root.playing-count == 1 ? " sound playing" : " sounds playing");
+        font-size: 11px;
+        color: Theme.ink-40;
+    }
+
+    Rectangle {
+        height: root.playing-count > 0 ? 16px : 0px;
+    }
+
+    for p in root.presets: PresetRow {
+        preset: p;
+        load => {
+            root.load(p.id);
+        }
+        delete => {
+            root.delete(p.id);
+        }
+    }
+
+    if root.presets.length == 0: VerticalLayout {
+        padding-top: 16px;
+        padding-bottom: 8px;
+        Text {
+            text: "No saved mixes yet. Get a combination you like, give it a name, and it will be here next time.";
+            font-size: 13px;
+            line-height-factor: 1.28;
+            color: Theme.ink-40;
+            wrap: word-wrap;
+        }
+    }
+}

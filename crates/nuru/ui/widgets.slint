@@ -1,0 +1,194 @@
+import { Theme, Icons } from "theme.slint";
+import { Icon } from "icon.slint";
+
+export component Switch inherits TouchArea {
+    in property <bool> on;
+    width: 38px;
+    height: 22px;
+
+    Rectangle {
+        border-radius: self.height / 2;
+        background: root.on ? Theme.nuru.with-alpha(0.4) : #ffffff17;
+        border-width: 1px;
+        border-color: Theme.line;
+        animate background { duration: Theme.dur-2; easing: ease-out; }
+    }
+
+    Rectangle {
+        x: root.on ? 19px : 3px;
+        y: 3px;
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        background: root.on ? Theme.ink : Theme.ink-40;
+        animate x { duration: Theme.dur-3; easing: cubic-bezier(0.34, 1.56, 0.64, 1); }
+        animate background { duration: Theme.dur-2; easing: ease-out; }
+    }
+}
+
+export component SolidButton inherits TouchArea {
+    in property <string> label;
+    in property <bool> danger: false;
+    in property <bool> wide: false;
+    in property <length> pad-x: 14px;
+    in property <length> pad-y: 8px;
+    height: text.preferred-height + 2 * root.pad-y;
+    min-width: text.preferred-width + 2 * root.pad-x;
+    horizontal-stretch: root.wide ? 1 : 0;
+
+    private property <bool> hot: root.enabled && root.has-hover;
+
+    Rectangle {
+        border-radius: 7px;
+        background: root.danger ? (root.hot ? Theme.danger.with-alpha(0.26) : Theme.danger-dim) : (root.hot ? #ffffff : Theme.ink);
+        opacity: root.enabled ? 1 : 0.3;
+    }
+
+    text := Text {
+        text: root.label;
+        font-size: 13px;
+        font-weight: 600;
+        color: root.danger ? Theme.danger : Theme.ink-inverse;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        opacity: root.enabled ? 1 : 0.3;
+    }
+}
+
+export component QuietButton inherits TouchArea {
+    in property <string> label;
+    in property <string> icon;
+    in property <bool> wide: false;
+    in property <bool> outlined: false;
+    in property <bool> danger-hover: false;
+    in property <length> icon-size: 14px;
+    height: 32px;
+    min-width: row.preferred-width + 26px;
+    horizontal-stretch: root.wide ? 1 : 0;
+
+    private property <bool> hot: root.enabled && root.has-hover;
+
+    Rectangle {
+        border-radius: 7px;
+        background: root.hot ? (root.danger-hover ? Theme.danger-dim : #ffffff17) : (root.outlined ? #ffffff0a : #ffffff0d);
+        border-width: root.outlined ? 1px : 0px;
+        border-color: root.hot ? Theme.line-strong : Theme.line-soft;
+        opacity: root.enabled ? 1 : 0.4;
+    }
+
+    row := HorizontalLayout {
+        alignment: center;
+        spacing: 7px;
+        opacity: root.enabled ? 1 : 0.4;
+
+        if root.icon != "": VerticalLayout {
+            alignment: center;
+            Icon {
+                commands: root.icon;
+                size: root.icon-size;
+                tint: root.hot ? (root.danger-hover ? Theme.danger : Theme.ink) : Theme.ink-60;
+            }
+        }
+
+        Text {
+            text: root.label;
+            font-size: 12px;
+            font-weight: 600;
+            color: root.hot ? (root.danger-hover ? Theme.danger : Theme.ink) : Theme.ink-60;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component Field {
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <bool> enabled: true;
+    in property <bool> numeric: false;
+    in property <bool> trailing: false;
+    callback accepted();
+    height: 32px;
+
+    Rectangle {
+        border-radius: 7px;
+        background: input.has-focus ? #ffffff14 : Theme.field;
+        border-width: input.has-focus ? 1px : 0px;
+        border-color: Theme.line-strong;
+        opacity: root.enabled ? 1 : 0.5;
+    }
+
+    if root.text == "": Text {
+        x: 10px;
+        width: parent.width - 20px;
+        height: parent.height;
+        text: root.placeholder;
+        font-size: 13px;
+        color: Theme.ink-25;
+        vertical-alignment: center;
+        horizontal-alignment: root.trailing ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+    }
+
+    input := TextInput {
+        x: 10px;
+        width: parent.width - 20px;
+        height: parent.height;
+        text <=> root.text;
+        enabled: root.enabled;
+        font-size: 13px;
+        color: Theme.ink;
+        vertical-alignment: center;
+        horizontal-alignment: root.trailing ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        single-line: true;
+        input-type: root.numeric ? InputType.number : InputType.text;
+        accepted => {
+            root.accepted();
+        }
+    }
+}
+
+export component Caps inherits Text {
+    font-size: 11px;
+    letter-spacing: 0.88px;
+    color: Theme.ink-40;
+}
+
+export component Divider inherits Rectangle {
+    height: 1px;
+    background: Theme.line-soft;
+}
+
+export component ScrollBar {
+    in property <length> view-height;
+    in property <length> content-height;
+    in-out property <length> content-y;
+    width: 10px;
+
+    private property <float> span: root.view-height / root.content-height;
+    private property <float> at: -root.content-y / (root.content-height - root.view-height);
+
+    thumb := Rectangle {
+        x: 3px;
+        width: 4px;
+        height: Math.max(24px, root.height * root.span);
+        y: (root.height - self.height) * root.at;
+        border-radius: 2px;
+        background: bar.has-hover || bar.pressed ? #f3f4f64d : #f3f4f629;
+        animate background { duration: Theme.dur-2; easing: ease-out; }
+    }
+
+    bar := TouchArea {
+        private property <length> grab;
+        private property <length> start;
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down) {
+                self.grab = self.mouse-y;
+                self.start = -root.content-y;
+            }
+        }
+        moved => {
+            if (self.pressed && root.height > thumb.height) {
+                root.content-y = -Math.clamp(self.start + (self.mouse-y - self.grab) * (root.content-height - root.view-height) / (root.height - thumb.height), 0, root.content-height - root.view-height);
+            }
+        }
+    }
+}

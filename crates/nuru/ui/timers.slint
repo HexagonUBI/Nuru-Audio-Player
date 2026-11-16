@@ -1,0 +1,586 @@
+import { Theme, Icons } from "theme.slint";
+import { Icon } from "icon.slint";
+import { Drawer } from "drawer.slint";
+import { Field, SolidButton, QuietButton, Switch, Divider } from "widgets.slint";
+import { PresetData, SlotData } from "panel-types.slint";
+
+component Tab inherits TouchArea {
+    in property <string> label;
+    in property <bool> on;
+    in property <bool> live: false;
+    height: 30px;
+    horizontal-stretch: 1;
+
+    Rectangle {
+        border-radius: self.height / 2;
+        background: root.on ? Theme.s-500 : transparent;
+    }
+
+    HorizontalLayout {
+        alignment: center;
+        spacing: 6px;
+
+        Text {
+            text: root.label;
+            font-size: 12px;
+            font-weight: 600;
+            color: root.on ? Theme.ink : Theme.ink-40;
+            vertical-alignment: center;
+        }
+
+        if root.live: VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 6px;
+                height: 6px;
+                border-radius: 3px;
+                background: Theme.nuru;
+            }
+        }
+    }
+}
+
+component Choice inherits TouchArea {
+    in property <int> minutes;
+    height: 54px;
+    horizontal-stretch: 1;
+
+    Rectangle {
+        border-radius: 11px;
+        background: root.has-hover ? #ffffff17 : #ffffff0a;
+        border-width: 1px;
+        border-color: root.has-hover ? Theme.line-strong : Theme.line-soft;
+    }
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 1px;
+
+        Text {
+            text: root.minutes;
+            font-family: Theme.display-font;
+            font-size: 14px;
+            font-weight: 500;
+            color: Theme.ink;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: "min";
+            font-size: 11px;
+            color: Theme.ink-40;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+component Ring {
+    in property <float> progress;
+    in property <string> time;
+    width: 148px;
+    height: 148px;
+
+    private property <angle> end: Math.max(0.0001, Math.min(0.9999, root.progress)) * 360deg;
+
+    Path {
+        width: 148px;
+        height: 148px;
+        viewbox-width: 148;
+        viewbox-height: 148;
+        commands: "M 74 7 A 67 67 0 1 1 73.99 7";
+        stroke: #ffffff12;
+        stroke-width: 14px;
+        fill: transparent;
+    }
+
+    if root.progress > 0: Path {
+        width: 148px;
+        height: 148px;
+        viewbox-width: 148;
+        viewbox-height: 148;
+        commands: "M 74 7 A 67 67 0 " + (root.end > 180deg ? "1" : "0") + " 1 " + (74 + 67 * Math.sin(root.end)) + " " + (74 - 67 * Math.cos(root.end));
+        stroke: Theme.nuru;
+        stroke-width: 14px;
+        fill: transparent;
+    }
+
+    Text {
+        text: root.time;
+        font-family: Theme.display-font;
+        font-size: 26px;
+        font-weight: 600;
+        color: Theme.ink;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component Swatch inherits TouchArea {
+    in property <PresetData> preset;
+    in property <bool> on;
+    height: 26px;
+    width: row.preferred-width + 17px;
+
+    Rectangle {
+        border-radius: self.height / 2;
+        background: root.on ? #ffffff1f : (root.has-hover ? #ffffff17 : #ffffff0a);
+        border-width: 1px;
+        border-color: root.on ? root.preset.accent : Theme.line-soft;
+    }
+
+    row := HorizontalLayout {
+        x: 7px;
+        spacing: 6px;
+
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 10px;
+                height: 10px;
+                border-radius: 3px;
+                background: root.preset.accent;
+            }
+        }
+
+        Text {
+            text: root.preset.name;
+            font-size: 11px;
+            color: root.on ? Theme.ink : Theme.ink-60;
+            vertical-alignment: center;
+            max-width: 108px;
+            overflow: elide;
+        }
+    }
+}
+
+component Clock {
+    in property <[SlotData]> slots;
+    in property <int> live-slot: -1;
+    callback begin(int);
+    callback extend(int);
+    callback finish();
+
+    private property <length> cell-h: 24px;
+    private property <length> gap: 3px;
+    private property <length> half: (self.width - self.gap) / 2;
+    height: 24 * self.cell-h + 23 * self.gap;
+
+    private property <int> last: -1;
+
+    for slot[i] in root.slots: Rectangle {
+        x: Math.mod(i, 2) * (root.half + root.gap);
+        y: Math.floor(i / 2) * (root.cell-h + root.gap);
+        width: root.half;
+        height: root.cell-h;
+        border-radius: 7px;
+        background: slot.filled ? slot.color.with-alpha(0.52) : #ffffff09;
+        border-width: root.live-slot == i ? 2px : 1px;
+        border-color: root.live-slot == i ? Theme.ink : (slot.filled ? slot.color.with-alpha(0.7) : Theme.line-soft);
+
+        Text {
+            text: slot.label;
+            font-size: 11px;
+            color: slot.filled ? Theme.ink : Theme.ink-40;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    TouchArea {
+        property <int> slot: Math.floor(self.mouse-y / (root.cell-h + root.gap)) * 2 + (self.mouse-x > root.half + root.gap / 2 ? 1 : 0);
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                root.last = self.slot;
+                root.begin(self.slot);
+            } else if (event.kind == PointerEventKind.up) {
+                root.last = -1;
+                root.finish();
+            }
+        }
+        moved => {
+            if (self.pressed && self.slot != root.last && self.slot >= 0 && self.slot < 48 && self.mouse-y >= 0) {
+                root.last = self.slot;
+                root.extend(self.slot);
+            }
+        }
+    }
+}
+
+export component TimersPanel inherits Drawer {
+    in property <bool> running;
+    in property <float> progress;
+    in property <string> remaining;
+    in property <bool> schedule-on;
+    in property <[PresetData]> presets;
+    in property <[SlotData]> slots;
+    in property <int> live-slot: -1;
+    in property <string> brush-id;
+    in property <string> brush-name;
+    in property <color> now-color;
+    in property <string> now-name;
+    in property <string> now-until;
+    in property <string> next-line;
+    in property <float> hours-filled;
+    in property <string> filled-label;
+    in-out property <int> tab: 0;
+    callback start(int);
+    callback cancel();
+    callback set-schedule(bool);
+    callback pick(string);
+    callback begin(int);
+    callback extend(int);
+    callback finish();
+    callback clear-all();
+    title: "Timers";
+    panel-width: 380px;
+
+    private property <string> custom: "45";
+
+    Rectangle {
+        height: 36px;
+        border-radius: 18px;
+        background: #ffffff0a;
+
+        HorizontalLayout {
+            padding: 3px;
+            spacing: 2px;
+
+            Tab {
+                label: "Sleep";
+                on: root.tab == 0;
+                clicked => {
+                    root.tab = 0;
+                }
+            }
+
+            Tab {
+                label: "Schedule";
+                on: root.tab == 1;
+                live: root.schedule-on;
+                clicked => {
+                    root.tab = 1;
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        height: 16px;
+    }
+
+    if root.tab == 0 && root.running: VerticalLayout {
+        spacing: 16px;
+        alignment: LayoutAlignment.start;
+
+        HorizontalLayout {
+            alignment: center;
+            Ring {
+                progress: root.progress;
+                time: root.remaining;
+            }
+        }
+
+        Text {
+            text: "Everything fades out and pauses when this reaches zero.";
+            font-size: 13px;
+            color: Theme.ink-40;
+            wrap: word-wrap;
+            horizontal-alignment: center;
+        }
+
+        SolidButton {
+            label: "Cancel timer";
+            danger: true;
+            pad-y: 10px;
+            clicked => {
+                root.cancel();
+            }
+        }
+    }
+
+    if root.tab == 0 && !root.running: VerticalLayout {
+        spacing: 0px;
+        alignment: LayoutAlignment.start;
+
+        Text {
+            text: "Pause everything after...";
+            font-size: 13px;
+            color: Theme.ink-40;
+        }
+
+        Rectangle {
+            height: 16px;
+        }
+
+        VerticalLayout {
+            spacing: 8px;
+
+            HorizontalLayout {
+                spacing: 8px;
+                Choice {
+                    minutes: 10;
+                    clicked => {
+                        root.start(10);
+                    }
+                }
+                Choice {
+                    minutes: 20;
+                    clicked => {
+                        root.start(20);
+                    }
+                }
+                Choice {
+                    minutes: 30;
+                    clicked => {
+                        root.start(30);
+                    }
+                }
+                Choice {
+                    minutes: 45;
+                    clicked => {
+                        root.start(45);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Choice {
+                    minutes: 60;
+                    clicked => {
+                        root.start(60);
+                    }
+                }
+                Choice {
+                    minutes: 90;
+                    clicked => {
+                        root.start(90);
+                    }
+                }
+                Choice {
+                    minutes: 120;
+                    clicked => {
+                        root.start(120);
+                    }
+                }
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+            }
+        }
+
+        Rectangle {
+            height: 20px;
+        }
+
+        Divider {}
+
+        HorizontalLayout {
+            padding-top: 16px;
+            spacing: 8px;
+
+            Text {
+                horizontal-stretch: 1;
+                text: "Custom";
+                font-size: 12px;
+                font-weight: 600;
+                color: Theme.ink-60;
+                vertical-alignment: center;
+            }
+
+            Field {
+                width: 72px;
+                text <=> root.custom;
+                numeric: true;
+                trailing: true;
+                accepted => {
+                    root.start(Math.round(Math.min(600, Math.max(1, root.custom.to-float()))));
+                }
+            }
+
+            Text {
+                text: "min";
+                font-size: 11px;
+                color: Theme.ink-40;
+                vertical-alignment: center;
+            }
+
+            SolidButton {
+                label: "Start";
+                clicked => {
+                    root.start(Math.round(Math.min(600, Math.max(1, root.custom.to-float()))));
+                }
+            }
+        }
+    }
+
+    if root.tab == 1: VerticalLayout {
+        spacing: 0px;
+        alignment: LayoutAlignment.start;
+
+        HorizontalLayout {
+            spacing: 12px;
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 2px;
+
+                Text {
+                    text: "Run mixes on a clock";
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: Theme.ink;
+                }
+
+                Text {
+                    text: "Each block is 30 minutes. Blocks that touch and share a mix play as one stretch.";
+                    font-size: 11px;
+                    color: Theme.ink-40;
+                    wrap: word-wrap;
+                }
+            }
+
+            VerticalLayout {
+                alignment: LayoutAlignment.start;
+                padding-top: 2px;
+                Switch {
+                    on: root.schedule-on;
+                    clicked => {
+                        root.set-schedule(!root.schedule-on);
+                    }
+                }
+            }
+        }
+
+        if root.schedule-on: VerticalLayout {
+            padding-top: 12px;
+            spacing: 2px;
+
+            HorizontalLayout {
+                spacing: 8px;
+
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 9px;
+                        height: 9px;
+                        border-radius: 4.5px;
+                        background: root.now-name != "" ? root.now-color : transparent;
+                        border-width: root.now-name != "" ? 0px : 1px;
+                        border-color: Theme.line-strong;
+                    }
+                }
+
+                if root.now-name != "": Text {
+                    text: root.now-name;
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: Theme.ink;
+                }
+
+                Text {
+                    horizontal-stretch: 1;
+                    text: root.now-name != "" ? "until " + root.now-until : "Nothing scheduled right now";
+                    font-size: 13px;
+                    color: Theme.ink-60;
+                }
+            }
+
+            if root.next-line != "": Text {
+                text: root.next-line;
+                font-size: 11px;
+                color: Theme.ink-40;
+            }
+        }
+
+        Rectangle {
+            height: 16px;
+        }
+
+        if root.presets.length == 0: Text {
+            text: "Save a mix first. The schedule plays saved mixes, so there is nothing to place yet.";
+            font-size: 13px;
+            color: Theme.ink-40;
+            wrap: word-wrap;
+        }
+
+        if root.presets.length > 0: VerticalLayout {
+            spacing: 0px;
+
+            Divider {}
+
+            Rectangle {
+                height: 12px;
+            }
+
+            palette := Rectangle {
+                property <int> per-row: 3;
+                height: Math.ceil(root.presets.length / self.per-row) * 34px;
+
+                for p[i] in root.presets: Swatch {
+                    x: Math.mod(i, palette.per-row) * (palette.width / palette.per-row);
+                    y: Math.floor(i / palette.per-row) * 34px;
+                    preset: p;
+                    on: root.brush-id == p.id;
+                    clicked => {
+                        root.pick(p.id);
+                    }
+                }
+            }
+
+            Text {
+                text: "Click a block to place " + root.brush-name + ", drag across several to fill them, click a placed block again to clear it.";
+                font-size: 11px;
+                color: Theme.ink-40;
+                wrap: word-wrap;
+            }
+
+            Rectangle {
+                height: 12px;
+            }
+
+            Clock {
+                slots: root.slots;
+                live-slot: root.schedule-on ? root.live-slot : -1;
+                begin(i) => {
+                    root.begin(i);
+                }
+                extend(i) => {
+                    root.extend(i);
+                }
+                finish => {
+                    root.finish();
+                }
+            }
+
+            Rectangle {
+                height: 16px;
+            }
+
+            Divider {}
+
+            HorizontalLayout {
+                padding-top: 12px;
+
+                Text {
+                    horizontal-stretch: 1;
+                    text: root.filled-label;
+                    font-size: 11px;
+                    color: Theme.ink-40;
+                    vertical-alignment: center;
+                }
+
+                QuietButton {
+                    label: "Clear all";
+                    icon: Icons.warn;
+                    icon-size: 12px;
+                    danger-hover: true;
+                    enabled: root.hours-filled > 0;
+                    clicked => {
+                        root.clear-all();
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,300 @@
+import { Theme, Icons } from "theme.slint";
+import { Icon } from "icon.slint";
+import { NuruMark } from "mark.slint";
+
+component ToolButton {
+    in property <string> icon;
+    in property <bool> on: false;
+    callback clicked;
+    width: 30px;
+    height: 30px;
+
+    Rectangle {
+        border-radius: 7px;
+        background: root.on ? Theme.nuru-ghost : (touch.has-hover ? Theme.hover : transparent);
+        animate background { duration: Theme.dur-2; easing: ease-out; }
+    }
+
+    Icon {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        commands: root.icon;
+        size: 16px;
+        tint: root.on ? Theme.nuru : (touch.has-hover ? Theme.ink : Theme.ink-40);
+    }
+
+    touch := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component CozyButton {
+    callback clicked;
+    height: 26px;
+    width: label.preferred-width + 22px;
+
+    Rectangle {
+        border-radius: self.height / 2;
+        background: touch.has-hover ? Theme.hover : transparent;
+        border-width: 1px;
+        border-color: Theme.line;
+        animate background { duration: Theme.dur-2; easing: ease-out; }
+    }
+
+    label := Text {
+        x: 11px;
+        y: (parent.height - self.height) / 2 + 1px;
+        text: "Cozy Mode";
+        font-family: Theme.display-font;
+        font-size: 12px;
+        font-weight: 600;
+        color: touch.has-hover ? Theme.ink : Theme.ink-60;
+    }
+
+    touch := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component UpdatePill inherits TouchArea {
+    height: 26px;
+    width: label.preferred-width + 20px;
+
+    Rectangle {
+        border-radius: self.height / 2;
+        background: root.has-hover ? Theme.nuru-bright : Theme.nuru;
+    }
+
+    label := Text {
+        x: 10px;
+        y: (parent.height - self.height) / 2 + 1px;
+        text: "Update";
+        font-family: Theme.display-font;
+        font-size: 11px;
+        font-weight: 600;
+        color: Theme.ink-inverse;
+    }
+}
+
+component TimerChip inherits TouchArea {
+    in property <string> text;
+    height: 26px;
+    width: row.preferred-width + 20px;
+
+    Rectangle {
+        border-radius: self.height / 2;
+        background: root.has-hover ? Theme.nuru-bright : Theme.nuru;
+    }
+
+    row := HorizontalLayout {
+        x: 10px;
+        spacing: 6px;
+
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                commands: Icons.timer;
+                size: 14px;
+                tint: Theme.ink-inverse;
+            }
+        }
+
+        Text {
+            text: root.text;
+            font-size: 11px;
+            color: Theme.ink-inverse;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component WindowButton {
+    in property <string> icon;
+    in property <length> icon-size: 14px;
+    in property <bool> danger: false;
+    callback clicked;
+    width: 46px;
+    height: Theme.titlebar-h;
+
+    Rectangle {
+        background: touch.pressed ? (root.danger ? #f1707a : #ffffff0a) : touch.has-hover ? (root.danger ? #e81123 : #ffffff14) : transparent;
+    }
+
+    Icon {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        commands: root.icon;
+        size: root.icon-size;
+        weight: 1.4;
+        tint: touch.has-hover ? Theme.ink : Theme.ink-60;
+    }
+
+    touch := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component TitleBar inherits Rectangle {
+    in property <string> version;
+    in property <bool> pulse;
+    in property <bool> maximized;
+    in property <string> update;
+    in property <string> panel;
+    in property <bool> timer-running;
+    in property <string> timer-text;
+    callback update-clicked();
+    callback drag();
+    callback minimize();
+    callback toggle-maximize();
+    callback close();
+    callback open-cozy();
+    callback open-timers();
+    callback open-settings();
+    height: Theme.titlebar-h;
+    background: Theme.s-800;
+
+    TouchArea {
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                root.drag();
+            }
+        }
+        double-clicked => {
+            root.toggle-maximize();
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: 16px;
+        spacing: 12px;
+
+        HorizontalLayout {
+            horizontal-stretch: 0;
+            alignment: start;
+            spacing: 8px;
+
+            VerticalLayout {
+                alignment: center;
+                NuruMark {
+                    size: 19px;
+                    pulse: root.pulse;
+                }
+            }
+
+            Text {
+                text: "Nuru";
+                font-family: Theme.display-font;
+                font-size: 14px;
+                font-weight: 600;
+                color: Theme.ink;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: root.version;
+                font-size: 11px;
+                color: Theme.ink-25;
+                vertical-alignment: center;
+            }
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+
+        HorizontalLayout {
+            horizontal-stretch: 0;
+            alignment: end;
+            spacing: 2px;
+
+            VerticalLayout {
+                alignment: center;
+                padding-right: 6px;
+                CozyButton {
+                    clicked => {
+                        root.open-cozy();
+                    }
+                }
+            }
+
+            if root.update != "": VerticalLayout {
+                alignment: center;
+                padding-right: 6px;
+                UpdatePill {
+                    clicked => {
+                        root.update-clicked();
+                    }
+                }
+            }
+
+            if root.timer-running: VerticalLayout {
+                alignment: center;
+                padding-right: 4px;
+                TimerChip {
+                    text: root.timer-text;
+                    clicked => {
+                        root.open-timers();
+                    }
+                }
+            }
+
+            if !root.timer-running: VerticalLayout {
+                alignment: center;
+                ToolButton {
+                    icon: Icons.timer;
+                    on: root.panel == "timers";
+                    clicked => {
+                        root.open-timers();
+                    }
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                ToolButton {
+                    icon: Icons.settings;
+                    on: root.panel == "settings";
+                    clicked => {
+                        root.open-settings();
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            horizontal-stretch: 0;
+            padding-left: 8px;
+
+            WindowButton {
+                icon: Icons.minimize;
+                icon-size: 15px;
+                clicked => {
+                    root.minimize();
+                }
+            }
+
+            WindowButton {
+                icon: root.maximized ? Icons.restore : Icons.maximize;
+                icon-size: 13px;
+                clicked => {
+                    root.toggle-maximize();
+                }
+            }
+
+            WindowButton {
+                icon: Icons.close;
+                icon-size: 14px;
+                danger: true;
+                clicked => {
+                    root.close();
+                }
+            }
+        }
+    }
+}
