@@ -192,7 +192,7 @@ fn resampling_preserves_the_waveform() {
 fn a_sound_can_be_switched_off_and_straight_back_on() {
     use super::AudioEngine;
 
-    let Ok(engine) = AudioEngine::open(None) else {
+    let Ok(engine) = AudioEngine::open(None, None) else {
         eprintln!("no audio device available, skipping");
         return;
     };

@@ -4,10 +4,15 @@ mod catalog;
 mod control;
 mod covers;
 mod cozy;
+#[cfg(windows)]
+mod dialogs;
 mod effects;
 mod logger;
+mod loading;
 mod panels;
 mod scene_art;
+#[cfg(windows)]
+mod tray;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -65,6 +70,9 @@ struct App {
     ticker: slint::Timer,
     scale: f32,
     cozy: Option<CozyState>,
+    updating: bool,
+    #[cfg(windows)]
+    tray: Option<tray::Tray>,
 }
 
 struct CozyState {
@@ -89,7 +97,15 @@ fn main() -> Result<()> {
     select_backend()?;
 
     let paths = Paths::resolve();
+    let key = instance_key(&paths);
+    #[cfg(windows)]
+    if !tray::claim_instance(&key) {
+        return Ok(());
+    }
+    logger::to_file(paths.logs());
+    log::info!("Nuru {} starting", nuru_core::version());
     let library = Arc::new(Library::new());
+    library.use_cache(paths.file("verified.json"));
     let found = library.scan(&catalog::pack_roots(&paths)).context("scanning sound packs")?;
     log::info!("loaded {found} sound pack(s)");
 
@@ -183,6 +199,9 @@ fn main() -> Result<()> {
             ticker: slint::Timer::default(),
             scale,
             cozy: None,
+            updating: false,
+            #[cfg(windows)]
+            tray: None,
         })
     });
     with_app(|app| {
@@ -198,7 +217,12 @@ fn main() -> Result<()> {
         let core = core.clone();
         std::thread::Builder::new().name("nuru-verify".into()).spawn(move || {
             let started = Instant::now();
-            let (ok, bad) = core.library().verify_all(|_, _, _| {});
+            let (ok, bad) = core.library().verify_all(|i, total, name| {
+                let label = if name.is_empty() { String::new() } else { format!("Checking {name}") };
+                let at = 0.16 + if total == 0 { 1.0 } else { i as f32 / total as f32 } * 0.78;
+                let _ = slint::invoke_from_event_loop(move || loading::boot_step(&label, at));
+            });
+            let _ = slint::invoke_from_event_loop(loading::boot_done);
             log::info!("verified {ok} sound(s) in {} ms, {bad} not playable", started.elapsed().as_millis());
             core.restore_last_mix();
             control::say("verified");
@@ -215,6 +239,16 @@ fn main() -> Result<()> {
 
     wire(&ui);
     control::spawn(ui.as_weak());
+    loading::begin(&ui);
+    #[cfg(windows)]
+    {
+        let made = tray::Tray::create(&key, |action| {
+            let _ = slint::invoke_from_event_loop(move || on_tray(action));
+        });
+        with_app(|app| app.tray = made);
+    }
+    #[cfg(not(windows))]
+    let _ = &key;
     ui.show()?;
     slint::Timer::single_shot(Duration::ZERO, || control::say("ready"));
     slint::run_event_loop_until_quit()?;
@@ -355,26 +389,56 @@ fn on_available(available: update::Available, on_launch: bool) {
 }
 
 fn start_own_update(available: update::Available) {
+    let fresh = with_app(|app| !std::mem::replace(&mut app.updating, true)).unwrap_or(false);
+    if !fresh {
+        return;
+    }
+    let version = available.build.version.clone();
+    loading::update_begin();
     let spawned = std::thread::Builder::new().name("nuru-update".into()).spawn(move || {
-        match update::download(&available.build, |_, _| {}) {
+        let mut last = u64::MAX;
+        let label = format!("Downloading {version}");
+        let downloaded = update::download(&available.build, |got, total| {
+            let pct = if total == 0 { 0 } else { got * 100 / total };
+            if pct != last {
+                last = pct;
+                let label = label.clone();
+                let at = 0.08 + pct as f32 / 100.0 * 0.74;
+                let _ = slint::invoke_from_event_loop(move || loading::update_step(&label, at, 0));
+            }
+        });
+        match downloaded {
             Ok(installer) => {
                 let _ = slint::invoke_from_event_loop(move || {
                     let Some(core) = core() else { return };
+                    loading::update_step("Installing", 0.9, 1);
                     update::write_handoff(core.paths(), nuru_core::version(), &available.build.version);
                     match update::install(&installer) {
                         Ok(()) => {
-                            let _ = slint::quit_event_loop();
+                            loading::update_step("Restarting Nuru", 1.0, 2);
+                            slint::Timer::single_shot(Duration::from_millis(600), || {
+                                let _ = slint::quit_event_loop();
+                            });
                         }
-                        Err(e) => log::warn!("{}", e.message()),
+                        Err(e) => update_failed(e.message()),
                     }
                 });
             }
-            Err(e) => log::warn!("{}", e.message()),
+            Err(e) => {
+                let _ = slint::invoke_from_event_loop(move || update_failed(e.message()));
+            }
         }
     });
     if let Err(e) = spawned {
         log::warn!("could not start the update: {e}");
+        update_failed(update::UpdateError::DownloadFailed.message());
     }
+}
+
+fn update_failed(message: &'static str) {
+    log::error!("update failed: {message}");
+    with_app(|app| app.updating = false);
+    loading::update_error(message);
 }
 
 fn quit_for_cloud(version: &str) {
@@ -678,23 +742,27 @@ fn wire(ui: &AppWindow) {
             }
         }
     });
-    ui.on_close_window(|| {
-        let _ = slint::quit_event_loop();
+    ui.on_close_window(close_pressed);
+    ui.window().on_close_requested(|| {
+        close_pressed();
+        slint::CloseRequestResponse::KeepWindowShown
     });
     ui.window().on_winit_window_event({
         let weak = ui.as_weak();
         move |window, event| {
-            if let slint::winit_030::winit::event::WindowEvent::Resized(_) = event {
-                if let Some(ui) = weak.upgrade() {
-                    ui.set_awake(!window.is_minimized());
+            match event {
+                slint::winit_030::winit::event::WindowEvent::Resized(_) => {
+                    if let Some(ui) = weak.upgrade() {
+                        ui.set_awake(!window.is_minimized());
+                    }
                 }
+                slint::winit_030::winit::event::WindowEvent::DroppedFile(path) => {
+                    log::info!("dropped {}", path.display());
+                }
+                _ => {}
             }
             slint::winit_030::EventResult::Propagate
         }
-    });
-    ui.window().on_close_requested(|| {
-        let _ = slint::quit_event_loop();
-        slint::CloseRequestResponse::HideWindow
     });
 }
 
@@ -707,6 +775,7 @@ fn on_change(change: Change) {
         Change::Mix => {
             sync_mix();
             cozy_refresh();
+            update_tray();
         }
         Change::Playing => {
             with_app(|app| {
@@ -714,6 +783,7 @@ fn on_change(change: Change) {
                     ui.set_playing(app.core.playing());
                 }
             });
+            update_tray();
         }
         Change::Master => {
             with_app(|app| {
@@ -759,6 +829,70 @@ fn on_change(change: Change) {
             });
         }
     }
+}
+
+fn instance_key(paths: &Paths) -> String {
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for byte in paths.file("").to_string_lossy().to_lowercase().bytes() {
+        hash ^= byte as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("Nuru-{hash:016x}")
+}
+
+fn close_pressed() {
+    #[cfg(windows)]
+    let to_tray = with_app(|app| app.tray.is_some()).unwrap_or(false);
+    #[cfg(not(windows))]
+    let to_tray = false;
+    if !to_tray {
+        let _ = slint::quit_event_loop();
+        return;
+    }
+    let Some(ui) = with_app(|app| app.ui.upgrade()).flatten() else { return };
+    let _ = ui.hide();
+    ui.set_awake(false);
+    #[cfg(windows)]
+    with_app(|app| {
+        if !app.core.settings().tray_notice_shown && app.core.audible() {
+            if let Some(tray) = &app.tray {
+                tray.notify("Nuru is still playing");
+            }
+            app.core.mark_tray_notice_shown();
+        }
+    });
+}
+
+fn show_window() {
+    let Some(ui) = with_app(|app| app.ui.upgrade()).flatten() else { return };
+    let _ = ui.show();
+    ui.window().set_minimized(false);
+    ui.set_awake(true);
+    ui.window().with_winit_window(|w| w.focus_window());
+}
+
+#[cfg(windows)]
+fn on_tray(action: tray::Action) {
+    match action {
+        tray::Action::Open => show_window(),
+        tray::Action::TogglePlaying => {
+            if let Some(core) = core() {
+                core.toggle_playing();
+            }
+        }
+        tray::Action::Exit => {
+            let _ = slint::quit_event_loop();
+        }
+    }
+}
+
+fn update_tray() {
+    #[cfg(windows)]
+    with_app(|app| {
+        if let Some(tray) = &app.tray {
+            tray.set_state(app.core.playing(), app.core.layers().len());
+        }
+    });
 }
 
 fn cozy_toggled(on: bool) {
@@ -1250,9 +1384,10 @@ pub fn command(ui: &AppWindow, line: &str) {
         (Some("hide"), _) => {
             let _ = ui.hide();
         }
-        (Some("show"), _) => {
-            let _ = ui.show();
-        }
+        (Some("show"), _) => show_window(),
+        (Some("close"), _) => ui.invoke_close_window(),
+        #[cfg(windows)]
+        (Some("pick"), _) => dialogs::pick_audio(|picked| log::info!("picked {picked:?}")),
         (Some("minimize"), _) => ui.window().set_minimized(true),
         (Some("restore"), _) => ui.window().set_minimized(false),
         (Some("panel"), name) => ui.set_panel(name.unwrap_or("").into()),

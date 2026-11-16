@@ -7,7 +7,13 @@ export component Fader {
     callback changed(float);
     height: 22px;
 
-    private property <bool> engaged: touch.has-hover || touch.pressed;
+    private property <bool> keyed;
+    private property <bool> engaged: touch.has-hover || touch.pressed || (keys.has-focus && root.keyed);
+
+    function nudge(to: float) {
+        root.keyed = true;
+        root.changed(Math.clamp(to, 0, 1));
+    }
     private property <float> shown: Math.clamp(root.value, 0, 1);
     private property <length> rail-h: root.engaged ? 8px : 6px;
     private property <length> knob: root.engaged ? 13px : 10.66px;
@@ -28,7 +34,7 @@ export component Fader {
         y: (parent.height - self.height) / 2;
         animate height { duration: Theme.dur-2; easing: ease-out; }
 
-        Shadow {
+        if parent.width > 4px: Shadow {
             source: Effects.pill-glow;
             pad: Effects.pill-glow-pad;
             spread: -2px;
@@ -81,10 +87,39 @@ export component Fader {
         }
     }
 
+    keys := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.RightArrow || event.text == Key.UpArrow) {
+                root.nudge(root.value + (event.modifiers.shift ? 0.01 : 0.05));
+                return accept;
+            }
+            if (event.text == Key.LeftArrow || event.text == Key.DownArrow) {
+                root.nudge(root.value - (event.modifiers.shift ? 0.01 : 0.05));
+                return accept;
+            }
+            if (event.text == Key.Home) {
+                root.nudge(0);
+                return accept;
+            }
+            if (event.text == Key.End) {
+                root.nudge(1);
+                return accept;
+            }
+            reject
+        }
+        changed has-focus => {
+            if (!self.has-focus) {
+                root.keyed = false;
+            }
+        }
+    }
+
     touch := TouchArea {
         mouse-cursor: pointer;
         pointer-event(event) => {
             if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                root.keyed = false;
+                keys.focus();
                 root.changed(Math.clamp(self.mouse-x / self.width, 0, 1));
             }
         }

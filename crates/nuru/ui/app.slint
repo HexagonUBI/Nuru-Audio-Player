@@ -7,6 +7,7 @@ import { TimersPanel } from "timers.slint";
 import { SettingsPanel } from "settings.slint";
 import { CreditsPanel, ChangelogPanel, Toasts } from "extras.slint";
 import { CozyView, CozyTile } from "cozy.slint";
+import { LoadingScreen } from "loading.slint";
 import { TileData, GroupData, ChipData, LayerData } from "types.slint";
 import { PresetData, SlotData, ToastData, EntryData, CreditData } from "panel-types.slint";
 import { Effects } from "effects.slint";
@@ -88,6 +89,17 @@ export component AppWindow inherits Window {
     in property <bool> cozy-ready;
     in property <bool> cozy-covered;
     in property <[CozyTile]> cozy-tiles;
+
+    in property <bool> boot-visible: true;
+    in property <bool> boot-shown: true;
+    in property <bool> boot-update;
+    in property <string> boot-line;
+    in property <color> boot-accent: Theme.nuru;
+    in property <float> boot-progress;
+    in property <int> boot-step;
+    in property <string> boot-label;
+    in property <string> boot-error;
+    in property <image> boot-glow;
     in property <image> cozy-flash;
     in property <float> cozy-flash-level;
 
@@ -449,5 +461,19 @@ export component AppWindow inherits Window {
         resized => {
             root.cozy-resized();
         }
+    }
+
+    if root.boot-visible: LoadingScreen {
+        width: root.width;
+        height: root.height;
+        shown: root.boot-shown;
+        update: root.boot-update;
+        line: root.boot-line;
+        accent: root.boot-accent;
+        progress: root.boot-progress;
+        step: root.boot-step;
+        label: root.boot-label;
+        error: root.boot-error;
+        glow: root.boot-glow;
     }
 }

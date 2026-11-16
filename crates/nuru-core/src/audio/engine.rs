@@ -228,12 +228,25 @@ fn device_name(device: &cpal::Device) -> Option<String> {
     device.description().ok().map(|d| d.name().to_string())
 }
 
+pub type OnLost = Arc<dyn Fn() + Send + Sync>;
+
+fn stream_errors(on_lost: Option<OnLost>) -> impl FnMut(cpal::Error) + Send + 'static {
+    move |e: cpal::Error| {
+        log::error!("audio output stream error: {e}");
+        if matches!(e.kind(), cpal::ErrorKind::DeviceNotAvailable | cpal::ErrorKind::StreamInvalidated | cpal::ErrorKind::DeviceChanged) {
+            if let Some(lost) = &on_lost {
+                lost();
+            }
+        }
+    }
+}
+
 impl AudioEngine {
     pub fn new() -> Result<Self> {
-        Self::open(None)
+        Self::open(None, None)
     }
 
-    pub fn open(wanted: Option<&str>) -> Result<Self> {
+    pub fn open(wanted: Option<&str>, on_lost: Option<OnLost>) -> Result<Self> {
         let host = cpal::default_host();
 
         let device = wanted
@@ -275,13 +288,11 @@ impl AudioEngine {
             master_scratch: vec![0.0; 8192],
         };
 
-        let err_fn = |e| log::error!("audio output stream error: {e}");
-
         let stream = match sample_format {
             SampleFormat::F32 => device.build_output_stream(
                 config,
                 move |out: &mut [f32], _| mixer.render(out),
-                err_fn,
+                stream_errors(on_lost),
                 None,
             ),
             SampleFormat::I16 => {
@@ -295,7 +306,7 @@ impl AudioEngine {
                             *d = (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
                         }
                     },
-                    err_fn,
+                    stream_errors(on_lost),
                     None,
                 )
             }

@@ -1,6 +1,8 @@
 export component NuruMark {
     in property <length> size: 20px;
     in property <bool> pulse: false;
+    in property <bool> tinted: false;
+    in property <color> tint;
     width: root.size;
     height: root.size;
 
@@ -13,7 +15,7 @@ export component NuruMark {
         viewbox-width: 24;
         viewbox-height: 24;
         commands: "M1.6 15.5a10.4 10.4 0 0 1 20.8 0";
-        stroke: #ffc468;
+        stroke: root.tinted ? root.tint : #ffc468;
         stroke-width: 1.7 * root.size / 24;
         stroke-line-cap: round;
         fill: transparent;
@@ -26,7 +28,7 @@ export component NuruMark {
         viewbox-width: 24;
         viewbox-height: 24;
         commands: "M5.6 15.5a6.4 6.4 0 0 1 12.8 0";
-        stroke: #ff8e6c;
+        stroke: root.tinted ? root.tint : #ff8e6c;
         stroke-width: 1.9 * root.size / 24;
         stroke-line-cap: round;
         fill: transparent;
@@ -39,6 +41,6 @@ export component NuruMark {
         viewbox-width: 24;
         viewbox-height: 24;
         commands: "M8.6 15.5a3.4 3.4 0 1 0 6.8 0a3.4 3.4 0 1 0 -6.8 0Z";
-        fill: #ffffd4;
+        fill: root.tinted ? root.tint.mix(#ffffff, 0.38) : #ffffd4;
     }
 }

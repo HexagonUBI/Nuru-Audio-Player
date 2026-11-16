@@ -1,0 +1,155 @@
+import { Theme } from "theme.slint";
+import { NuruMark } from "mark.slint";
+import { Effects, Shadow } from "effects.slint";
+
+component Step inherits Text {
+    in property <int> order;
+    in property <int> at;
+    in property <color> accent;
+    font-size: 11px;
+    letter-spacing: 0.88px;
+    color: root.at == root.order ? root.accent : root.at > root.order ? Theme.ink-60 : Theme.ink-25;
+    animate color { duration: Theme.dur-3; easing: ease-out; }
+}
+
+export component LoadingScreen {
+    in property <bool> shown: true;
+    in property <bool> update;
+    in property <string> line;
+    in property <color> accent: Theme.nuru;
+    in property <float> progress;
+    in property <int> step;
+    in property <string> label;
+    in property <string> error;
+    in property <image> glow;
+
+    opacity: root.shown ? 1 : 0;
+    animate opacity { duration: 420ms; easing: ease-out; }
+
+    TouchArea {}
+
+    Rectangle {
+        background: Theme.s-900;
+    }
+
+    Image {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        width: 720px;
+        height: 720px;
+        source: root.glow;
+        colorize: root.accent;
+        image-fit: fill;
+    }
+
+    VerticalLayout {
+        x: (root.width - self.width) / 2;
+        width: Math.min(420px, root.width * 0.78);
+        alignment: center;
+
+        HorizontalLayout {
+            alignment: center;
+            padding-bottom: 16px;
+            NuruMark {
+                size: 64px;
+                pulse: true;
+                tinted: true;
+                tint: root.accent;
+            }
+        }
+
+        Text {
+            text: root.update ? "Updating Nuru" : "Nuru";
+            font-family: Theme.display-font;
+            font-size: 30px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            color: Theme.ink;
+            horizontal-alignment: center;
+        }
+
+        Rectangle {
+            height: 8px;
+        }
+
+        Text {
+            text: root.line;
+            font-size: 13px;
+            line-height-factor: 1.13;
+            color: Theme.ink-40;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+
+        Rectangle {
+            height: 24px;
+        }
+
+        Rectangle {
+            height: 5px;
+
+            Rectangle {
+                border-radius: 2.5px;
+                background: #ffffff12;
+            }
+
+            filled := Rectangle {
+                x: 0;
+                width: parent.width * Math.clamp(root.progress, 0, 1);
+                animate width { duration: Theme.dur-4; easing: ease-out; }
+
+                if parent.width > 4px: Shadow {
+                    source: Effects.pill-glow;
+                    pad: Effects.pill-glow-pad;
+                    spread: -2px;
+                    box-width: parent.width;
+                    box-height: parent.height;
+                    colorize: root.accent;
+                }
+
+                Rectangle {
+                    border-radius: 2.5px;
+                    background: root.accent;
+                }
+            }
+        }
+
+        if root.update: HorizontalLayout {
+            alignment: center;
+            padding-top: 16px;
+            spacing: 16px;
+            Step {
+                text: "DOWNLOAD";
+                order: 0;
+                at: root.step;
+                accent: root.accent;
+            }
+            Step {
+                text: "INSTALL";
+                order: 1;
+                at: root.step;
+                accent: root.accent;
+            }
+            Step {
+                text: "RESTART";
+                order: 2;
+                at: root.step;
+                accent: root.accent;
+            }
+        }
+
+        Rectangle {
+            height: 12px;
+        }
+
+        Text {
+            text: root.error != "" ? root.error : root.label;
+            font-size: 11px;
+            line-height-factor: 1.05;
+            color: root.error != "" ? Theme.danger : Theme.ink-25;
+            horizontal-alignment: center;
+            overflow: elide;
+            min-height: 15px;
+        }
+    }
+}

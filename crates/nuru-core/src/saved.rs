@@ -133,11 +133,12 @@ impl ScheduleFile {
 pub struct Settings {
     pub output_device: Option<String>,
     pub auto_update: bool,
+    pub tray_notice_shown: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { output_device: None, auto_update: true }
+        Self { output_device: None, auto_update: true, tray_notice_shown: false }
     }
 }
 

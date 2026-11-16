@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, OnceLock, Weak};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -6,7 +7,7 @@ use anyhow::{Context, Result};
 use chrono::Timelike;
 use parking_lot::{Condvar, Mutex, RwLock};
 
-use crate::audio::AudioEngine;
+use crate::audio::{AudioEngine, OnLost};
 use crate::discord::{now_secs, Presence, Status};
 use crate::legacy;
 use crate::library::Library;
@@ -91,6 +92,17 @@ pub struct Core {
     wake: Condvar,
     sink: Sink,
     ticker: Mutex<Option<JoinHandle<()>>>,
+    link: Arc<OnceLock<Weak<Core>>>,
+    recovering: AtomicBool,
+}
+
+fn lost_handler(link: &Arc<OnceLock<Weak<Core>>>) -> OnLost {
+    let link = link.clone();
+    Arc::new(move || {
+        if let Some(core) = link.get().and_then(Weak::upgrade) {
+            core.output_lost();
+        }
+    })
 }
 
 impl Core {
@@ -98,7 +110,8 @@ impl Core {
         let settings: Settings = read_json(&paths.file(SETTINGS_FILE)).unwrap_or_default();
         let (saved, presets, slots, fresh) = load_saved(&paths);
 
-        let engine = AudioEngine::open(settings.output_device.as_deref()).context("opening the audio output")?;
+        let link: Arc<OnceLock<Weak<Core>>> = Arc::new(OnceLock::new());
+        let engine = AudioEngine::open(settings.output_device.as_deref(), Some(lost_handler(&link))).context("opening the audio output")?;
         log::info!(
             "audio out: {} @ {} Hz, {} ch",
             engine.device.name,
@@ -135,7 +148,10 @@ impl Core {
             wake: Condvar::new(),
             sink,
             ticker: Mutex::new(None),
+            link: link.clone(),
+            recovering: AtomicBool::new(false),
         });
+        let _ = link.set(Arc::downgrade(&core));
 
         if fresh {
             core.flush();
@@ -630,39 +646,77 @@ impl Core {
         self.write_settings(&s);
     }
 
+    pub fn mark_tray_notice_shown(&self) {
+        let mut s = self.settings.lock();
+        s.tray_notice_shown = true;
+        self.write_settings(&s);
+    }
+
     pub fn set_output_device(self: &Arc<Self>, device: Option<String>) {
-        match AudioEngine::open(device.as_deref()) {
+        match AudioEngine::open(device.as_deref(), Some(lost_handler(&self.link))) {
             Ok(engine) => {
-                let name = engine.device.name.clone();
-                let (layers, playing, master) = {
-                    let inner = self.inner.lock();
-                    (inner.layers.clone(), inner.playing, inner.saved.master_volume)
-                };
-                let _ = engine.set_master(master);
-                *self.engine.write() = Arc::new(engine);
                 {
                     let mut s = self.settings.lock();
                     s.output_device = device;
                     self.write_settings(&s);
                 }
-                log::info!("output device switched to {name}");
-                {
-                    let mut inner = self.inner.lock();
-                    inner.layers.clear();
-                }
-                for l in &layers {
-                    self.add(&l.sound_id, Some(l.volume));
-                }
-                if !playing && !layers.is_empty() {
-                    self.inner.lock().playing = false;
-                    let _ = self.engine().set_playing(false);
-                    self.emit(Change::Playing);
-                }
-                self.emit(Change::Device);
-                self.toast(format!("Output set to {name}"), false);
+                self.adopt(engine);
             }
             Err(e) => self.toast(format!("Could not switch output: {e:#}"), true),
         }
+    }
+
+    fn output_lost(self: &Arc<Self>) {
+        if self.recovering.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let core = self.clone();
+        let started = std::thread::Builder::new().name("nuru-device".into()).spawn(move || {
+            for attempt in 0..60 {
+                std::thread::sleep(Duration::from_millis(if attempt == 0 { 400 } else { 2000 }));
+                let wanted = core.settings().output_device;
+                match AudioEngine::open(wanted.as_deref(), Some(lost_handler(&core.link))) {
+                    Ok(engine) => {
+                        core.adopt(engine);
+                        break;
+                    }
+                    Err(e) => {
+                        if attempt == 0 {
+                            log::warn!("the audio output went away and none is available yet: {e:#}");
+                        }
+                    }
+                }
+            }
+            core.recovering.store(false, Ordering::SeqCst);
+        });
+        if started.is_err() {
+            self.recovering.store(false, Ordering::SeqCst);
+        }
+    }
+
+    fn adopt(self: &Arc<Self>, engine: AudioEngine) {
+        let name = engine.device.name.clone();
+        let (layers, playing, master) = {
+            let inner = self.inner.lock();
+            (inner.layers.clone(), inner.playing, inner.saved.master_volume)
+        };
+        let _ = engine.set_master(master);
+        *self.engine.write() = Arc::new(engine);
+        log::info!("output device switched to {name}");
+        {
+            let mut inner = self.inner.lock();
+            inner.layers.clear();
+        }
+        for l in &layers {
+            self.add(&l.sound_id, Some(l.volume));
+        }
+        if !playing && !layers.is_empty() {
+            self.inner.lock().playing = false;
+            let _ = self.engine().set_playing(false);
+            self.emit(Change::Playing);
+        }
+        self.emit(Change::Device);
+        self.toast(format!("Output set to {name}"), false);
     }
 
     fn write_settings(&self, settings: &Settings) {

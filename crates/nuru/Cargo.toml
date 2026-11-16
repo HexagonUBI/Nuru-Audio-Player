@@ -15,6 +15,9 @@ nuru-core = { path = "../nuru-core" }
 resvg = { version = "0.48.1", default-features = false }
 slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "accessibility", "backend-winit", "renderer-software", "unstable-winit-030"] }
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_System_LibraryLoader"] }
+
 [build-dependencies]
 slint-build = "1.18"
 winresource = "0.1"
