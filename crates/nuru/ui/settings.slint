@@ -43,8 +43,10 @@ component ThemeChoice inherits TouchArea {
     Rectangle {
         border-radius: 11px;
         background: root.on ? Theme.nuru-ghost : (root.has-hover ? #ffffff0a : transparent);
+        animate background { duration: Theme.dur-2; easing: ease-out; }
         border-width: root.on ? 1.5px : 1px;
         border-color: root.on ? Theme.nuru : Theme.line-soft;
+        animate border-color { duration: Theme.dur-2; easing: ease-out; }
     }
 
     VerticalLayout {
@@ -97,8 +99,10 @@ component SizeChoice inherits TouchArea {
     Rectangle {
         border-radius: 11px;
         background: root.on ? Theme.nuru-ghost : (root.has-hover ? #ffffff0a : transparent);
+        animate background { duration: Theme.dur-2; easing: ease-out; }
         border-width: root.on ? 1.5px : 1px;
         border-color: root.on ? Theme.nuru : Theme.line-soft;
+        animate border-color { duration: Theme.dur-2; easing: ease-out; }
     }
 
     VerticalLayout {
@@ -115,6 +119,7 @@ component SizeChoice inherits TouchArea {
                     height: root.preview;
                     border-radius: 4px;
                     background: root.on ? Theme.nuru : Theme.ink-25;
+                    animate background { duration: Theme.dur-2; easing: ease-out; }
                 }
             }
         }
@@ -202,6 +207,7 @@ component Select {
     Rectangle {
         border-radius: 7px;
         background: touch.has-hover ? #ffffff14 : Theme.field;
+        animate background { duration: Theme.dur-2; easing: ease-out; }
         border-width: 1px;
         border-color: Theme.line;
     }
@@ -255,7 +261,8 @@ component Select {
             for option[i] in [root.empty-label] : Rectangle {
                 height: 30px;
                 border-radius: 5px;
-                background: first.has-hover ? #ffffff14 : transparent;
+                background: first.has-hover ? #ffffff14 : #ffffff00;
+                animate background { duration: Theme.dur-2; easing: ease-out; }
                 Text {
                     x: 8px;
                     text: option;
@@ -273,7 +280,8 @@ component Select {
             for option in root.options: Rectangle {
                 height: 30px;
                 border-radius: 5px;
-                background: pick.has-hover ? #ffffff14 : transparent;
+                background: pick.has-hover ? #ffffff14 : #ffffff00;
+                animate background { duration: Theme.dur-2; easing: ease-out; }
                 Text {
                     x: 8px;
                     width: parent.width - 16px;
@@ -302,6 +310,7 @@ component LinkButton inherits TouchArea {
     Rectangle {
         border-radius: 11px;
         background: root.has-hover ? #ffffff14 : #ffffff0a;
+        animate background { duration: Theme.dur-2; easing: ease-out; }
         border-width: 1px;
         border-color: Theme.line-soft;
     }

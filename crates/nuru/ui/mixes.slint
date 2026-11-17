@@ -6,95 +6,112 @@ import { PresetData } from "panel-types.slint";
 
 component PresetRow inherits TouchArea {
     in property <PresetData> preset;
+    in property <int> order;
     callback load();
     callback delete();
     height: 52px;
 
-    Rectangle {
-        border-radius: 11px;
-        background: root.has-hover ? #ffffff0a : transparent;
+    private property <bool> born;
+    private property <float> rise: root.born ? 1 : 0;
+    animate rise { duration: 220ms; delay: Math.min(root.order * 24ms, 240ms); easing: cubic-bezier(0.22, 1, 0.36, 1); }
+
+    init => {
+        root.rise;
+        root.born = true;
     }
 
-    HorizontalLayout {
-        spacing: 4px;
+    Rectangle {
+        y: (1 - root.rise) * 8px;
+        opacity: root.rise;
 
-        TouchArea {
-            horizontal-stretch: 1;
-            clicked => {
-                root.load();
-            }
+        Rectangle {
+            border-radius: 11px;
+            background: root.has-hover ? #ffffff0a : #ffffff00;
+            animate background { duration: Theme.dur-2; easing: ease-out; }
+        }
 
-            HorizontalLayout {
-                padding-left: 12px;
-                padding-right: 12px;
-                spacing: 12px;
+        HorizontalLayout {
+            spacing: 4px;
+
+            TouchArea {
+                horizontal-stretch: 1;
+                clicked => {
+                    root.load();
+                }
 
                 HorizontalLayout {
-                    horizontal-stretch: 0;
-                    spacing: -3px;
-                    for c in root.preset.dots: VerticalLayout {
-                        alignment: center;
-                        Rectangle {
-                            width: 15px;
-                            height: 15px;
-                            border-radius: 7.5px;
-                            background: Theme.s-700;
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    spacing: 12px;
 
+                    HorizontalLayout {
+                        horizontal-stretch: 0;
+                        spacing: -3px;
+                        for c in root.preset.dots: VerticalLayout {
+                            alignment: center;
                             Rectangle {
-                                x: 2px;
-                                y: 2px;
-                                width: 11px;
-                                height: 11px;
-                                border-radius: 5.5px;
-                                background: c;
+                                width: 15px;
+                                height: 15px;
+                                border-radius: 7.5px;
+                                background: Theme.s-700;
+
+                                Rectangle {
+                                    x: 2px;
+                                    y: 2px;
+                                    width: 11px;
+                                    height: 11px;
+                                    border-radius: 5.5px;
+                                    background: c;
+                                }
                             }
                         }
                     }
-                }
 
-                VerticalLayout {
-                    alignment: center;
-                    spacing: 1px;
-                    horizontal-stretch: 1;
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 1px;
+                        horizontal-stretch: 1;
 
-                    Text {
-                        text: root.preset.name;
-                        font-size: 12px;
-                        font-weight: 600;
-                        color: Theme.ink;
-                        overflow: elide;
-                    }
+                        Text {
+                            text: root.preset.name;
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: Theme.ink;
+                            overflow: elide;
+                        }
 
-                    Text {
-                        text: root.preset.count + (root.preset.count == 1 ? " sound" : " sounds");
-                        font-size: 11px;
-                        color: Theme.ink-40;
+                        Text {
+                            text: root.preset.count + (root.preset.count == 1 ? " sound" : " sounds");
+                            font-size: 11px;
+                            color: Theme.ink-40;
+                        }
                     }
                 }
             }
-        }
 
-        VerticalLayout {
-            alignment: center;
-            padding-right: 6px;
-            Rectangle {
-                width: 30px;
-                height: 30px;
-                border-radius: 7px;
-                background: bin.has-hover ? Theme.danger-dim : transparent;
-                opacity: root.has-hover ? 1 : 0;
+            VerticalLayout {
+                alignment: center;
+                padding-right: 6px;
+                Rectangle {
+                    width: 30px;
+                    height: 30px;
+                    border-radius: 7px;
+                    background: bin.has-hover ? Theme.danger-dim : Theme.danger-dim.transparentize(100%);
+                    opacity: root.has-hover ? 1 : 0;
+                    animate opacity, background { duration: Theme.dur-2; easing: ease-out; }
 
-                Icon {
-                    x: (parent.width - self.width) / 2;
-                    y: (parent.height - self.height) / 2;
-                    commands: Icons.trash;
-                    size: 14px;
-                    tint: bin.has-hover ? Theme.danger : Theme.ink-40;
-                }
+                    Icon {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        commands: Icons.trash;
+                        size: 14px;
+                        tint: bin.has-hover ? Theme.danger : Theme.ink-40;
+                    }
 
-                bin := TouchArea {
-                    clicked => {
-                        root.delete();
+                    bin := TouchArea {
+                        clicked => {
+                            root.delete();
+                        }
                     }
                 }
             }
@@ -153,8 +170,9 @@ export component MixesPanel inherits Drawer {
         height: root.playing-count > 0 ? 16px : 0px;
     }
 
-    for p in root.presets: PresetRow {
+    for p[i] in root.presets: PresetRow {
         preset: p;
+        order: i;
         load => {
             root.load(p.id);
         }

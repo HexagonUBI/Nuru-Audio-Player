@@ -23,6 +23,7 @@ component Round inherits TouchArea {
     Rectangle {
         border-radius: 21px;
         background: root.has-hover ? #ffffff2e : #ffffff1a;
+        animate background { duration: Theme.dur-2; easing: ease-out; }
     }
 
     Icon {

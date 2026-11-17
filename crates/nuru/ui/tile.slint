@@ -1,24 +1,40 @@
 import { Theme } from "theme.slint";
 import { Effects, Shadow } from "effects.slint";
 import { TileData } from "types.slint";
+import { Pressable } from "widgets.slint";
 
-export component Tile inherits TouchArea {
+export component Tile inherits Pressable {
     in property <TileData> data;
+    in property <int> order;
+    in property <bool> ready: true;
     in property <length> size: 216px;
     in property <length> radius: 16px;
     in property <length> label-size: 22px;
     width: root.size;
     height: root.size;
     mouse-cursor: pointer;
+    depth: 0.985;
 
     private property <bool> lifted: root.has-hover && !root.pressed;
     private property <bool> on: root.data.active;
+    private property <bool> born;
+    private property <float> rise: root.born && root.ready ? 1 : 0;
+    animate rise { duration: 300ms; delay: Math.min(root.order * 22ms, 260ms); easing: cubic-bezier(0.22, 1, 0.36, 1); }
+
+    init => {
+        root.rise;
+        root.born = true;
+    }
 
     body := Rectangle {
-        width: parent.width;
-        height: parent.height;
-        y: root.lifted ? -4px : root.pressed ? -1px : 0px;
-        animate y { duration: Theme.dur-3; easing: cubic-bezier(0.34, 1.56, 0.64, 1); }
+        x: root.press-x;
+        width: root.width - 2 * root.press-x;
+        height: root.height - 2 * root.press-y;
+        y: root.press-y + (1 - root.rise) * 14px + lift;
+        opacity: root.rise;
+
+        property <length> lift: root.lifted ? -4px : root.pressed ? -1px : 0px;
+        animate lift { duration: Theme.dur-3; easing: cubic-bezier(0.34, 1.56, 0.64, 1); }
 
         Shadow {
             source: Effects.tile-rest;
@@ -74,16 +90,23 @@ export component Tile inherits TouchArea {
         Image {
             width: parent.width;
             height: parent.height;
-            source: root.on ? root.data.active-cover : root.data.cover;
+            source: root.data.cover;
         }
 
         Image {
-            visible: !root.on;
+            width: parent.width;
+            height: parent.height;
+            source: root.data.active-cover;
+            opacity: root.on ? 1 : 0;
+            animate opacity { duration: Theme.dur-3; easing: ease-out; }
+        }
+
+        Image {
             width: parent.width;
             height: parent.height;
             source: Effects.tile-mask;
             colorize: #07080a;
-            opacity: root.lifted ? 0.565 : 0.66;
+            opacity: root.on ? 0 : root.lifted ? 0.565 : 0.66;
             animate opacity { duration: Theme.dur-3; easing: ease-out; }
         }
 
@@ -99,6 +122,7 @@ export component Tile inherits TouchArea {
             wrap: word-wrap;
             color: root.on ? #ffffff40 : #000000a6;
             stroke: root.on ? #ffffff1f : #00000038;
+            animate color, stroke { duration: Theme.dur-3; easing: ease-out; }
             stroke-width: root.on ? 4px : 3px;
             stroke-style: outside;
         }
@@ -114,6 +138,7 @@ export component Tile inherits TouchArea {
             letter-spacing: -0.01 * root.label-size;
             wrap: word-wrap;
             color: root.on ? #0a0b0de6 : Theme.ink;
+            animate color { duration: Theme.dur-3; easing: ease-out; }
         }
 
         if root.data.loading: Rectangle {

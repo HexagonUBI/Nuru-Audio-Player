@@ -150,8 +150,26 @@ export component AppWindow inherits Window {
         root.search-changed(root.search);
     }
 
+    private property <string> drawer;
+    private property <bool> drawer-closing;
+
     changed panel => {
+        if (root.panel != "") {
+            root.drawer = root.panel;
+            root.drawer-closing = false;
+        } else {
+            root.drawer-closing = true;
+        }
         root.panel-opened(root.panel);
+    }
+
+    Timer {
+        interval: 300ms;
+        running: root.drawer-closing;
+        triggered => {
+            root.drawer = "";
+            root.drawer-closing = false;
+        }
     }
 
     changed cozy => {
@@ -234,6 +252,7 @@ export component AppWindow inherits Window {
                 Mixer {
                     horizontal-stretch: 0;
                     layers: root.layers;
+                    count: root.playing-count;
                     master: root.master;
                     playing: root.playing;
                     set-master(v) => {
@@ -264,6 +283,7 @@ export component AppWindow inherits Window {
                     groups: root.groups;
                     chips: root.chips;
                     empty-text: root.empty-text;
+                    ready: !root.boot-shown;
                     tile-size: root.tile-size;
                     tile-gap: root.tile-gap;
                     tile-radius: root.tile-radius;
@@ -283,7 +303,8 @@ export component AppWindow inherits Window {
         }
     }
 
-    if root.panel == "mixes": MixesPanel {
+    if root.drawer == "mixes": MixesPanel {
+        closing: root.drawer-closing;
         width: root.width;
         height: root.height;
         presets: root.presets;
@@ -302,7 +323,8 @@ export component AppWindow inherits Window {
         }
     }
 
-    if root.panel == "timers": TimersPanel {
+    if root.drawer == "timers": TimersPanel {
+        closing: root.drawer-closing;
         width: root.width;
         height: root.height;
         running: root.timer-running;
@@ -351,7 +373,8 @@ export component AppWindow inherits Window {
         }
     }
 
-    if root.panel == "settings": SettingsPanel {
+    if root.drawer == "settings": SettingsPanel {
+        closing: root.drawer-closing;
         width: root.width;
         height: root.height;
         theme-id: root.theme-id;
@@ -407,7 +430,8 @@ export component AppWindow inherits Window {
         }
     }
 
-    if root.panel == "credits": CreditsPanel {
+    if root.drawer == "credits": CreditsPanel {
+        closing: root.drawer-closing;
         width: root.width;
         height: root.height;
         credits: root.credits;
@@ -421,7 +445,8 @@ export component AppWindow inherits Window {
         }
     }
 
-    if root.panel == "changelog": ChangelogPanel {
+    if root.drawer == "changelog": ChangelogPanel {
+        closing: root.drawer-closing;
         width: root.width;
         height: root.height;
         release-version: root.changelog-version;

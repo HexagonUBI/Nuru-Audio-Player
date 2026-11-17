@@ -289,18 +289,32 @@ fn toast(text: String, error: bool) {
     let id = with_app(|app| {
         app.next_toast += 1;
         let id = app.next_toast;
-        app.toasts.push(ToastData { id, text: text.into(), error });
+        app.toasts.push(ToastData { id, text: text.into(), error, leaving: false });
         id
     });
     let Some(id) = id else { return };
     let wait = Duration::from_millis(if error { 6000 } else { 3200 });
     slint::Timer::single_shot(wait, move || {
         with_app(|app| {
-            if let Some(pos) = (0..app.toasts.row_count()).find(|&i| app.toasts.row_data(i).is_some_and(|t| t.id == id)) {
-                app.toasts.remove(pos);
+            if let Some(pos) = toast_row(app, id) {
+                if let Some(mut t) = app.toasts.row_data(pos) {
+                    t.leaving = true;
+                    app.toasts.set_row_data(pos, t);
+                }
             }
         });
+        slint::Timer::single_shot(Duration::from_millis(170), move || {
+            with_app(|app| {
+                if let Some(pos) = toast_row(app, id) {
+                    app.toasts.remove(pos);
+                }
+            });
+        });
     });
+}
+
+fn toast_row(app: &App, id: i32) -> Option<usize> {
+    (0..app.toasts.row_count()).find(|&i| app.toasts.row_data(i).is_some_and(|t| t.id == id))
 }
 
 fn apply_tile_props(ui: &AppWindow, size: nuru_core::saved::TileSize) {
@@ -1091,6 +1105,51 @@ fn cozy_tick() {
     });
 }
 
+fn merge_layers(model: &VecModel<LayerData>, rows: Vec<LayerData>) -> Vec<SharedString> {
+    let at_of = |id: &SharedString, from: usize| (from..model.row_count()).find(|&j| model.row_data(j).is_some_and(|old| old.id == *id));
+    let found: Vec<usize> = rows.iter().filter_map(|r| at_of(&r.id, 0)).collect();
+    if found.windows(2).any(|w| w[0] >= w[1]) {
+        model.set_vec(rows);
+        return Vec::new();
+    }
+    let mut gone = Vec::new();
+    for j in 0..model.row_count() {
+        if let Some(mut old) = model.row_data(j) {
+            if !old.leaving && !rows.iter().any(|r| r.id == old.id) {
+                gone.push(old.id.clone());
+                old.leaving = true;
+                model.set_row_data(j, old);
+            }
+        }
+    }
+    let mut at = 0;
+    for r in rows {
+        match at_of(&r.id, at) {
+            Some(j) => {
+                if model.row_data(j).is_some_and(|old| old != r) {
+                    model.set_row_data(j, r);
+                }
+                at = j + 1;
+            }
+            None => {
+                model.insert(at, r);
+                at += 1;
+            }
+        }
+    }
+    gone
+}
+
+fn purge_layers(gone: Vec<SharedString>) {
+    with_app(|app| {
+        for j in (0..app.layers.row_count()).rev() {
+            if app.layers.row_data(j).is_some_and(|r| r.leaving && gone.contains(&r.id)) {
+                app.layers.remove(j);
+            }
+        }
+    });
+}
+
 fn sync_mix() {
     let mut recheck = false;
     let mut tint_jobs = Vec::new();
@@ -1107,19 +1166,13 @@ fn sync_mix() {
                     name: e.sound.name.as_str().into(),
                     accent: color(&e.sound.accent),
                     volume: l.volume,
+                    leaving: false,
                 })
             })
             .collect();
-        let same_ids = rows.len() == app.layers.row_count()
-            && rows.iter().enumerate().all(|(j, r)| app.layers.row_data(j).is_some_and(|old| old.id == r.id));
-        if same_ids {
-            for (j, r) in rows.into_iter().enumerate() {
-                if app.layers.row_data(j).is_some_and(|old| old.volume != r.volume) {
-                    app.layers.set_row_data(j, r);
-                }
-            }
-        } else {
-            app.layers.set_vec(rows);
+        let gone = merge_layers(&app.layers, rows);
+        if !gone.is_empty() {
+            slint::Timer::single_shot(Duration::from_millis(230), move || purge_layers(gone));
         }
 
         for i in 0..app.entries.len() {

@@ -2,7 +2,7 @@ import { Theme, Icons } from "theme.slint";
 import { Icon } from "icon.slint";
 import { Tile } from "tile.slint";
 import { TileData, GroupData, ChipData } from "types.slint";
-import { ScrollBar } from "widgets.slint";
+import { ScrollBar, Pressable } from "widgets.slint";
 
 component SearchBox {
     in-out property <string> text;
@@ -16,8 +16,9 @@ component SearchBox {
     Rectangle {
         border-radius: 7px;
         background: input.has-focus ? #ffffff14 : Theme.field;
-        border-width: input.has-focus ? 1px : 0px;
-        border-color: Theme.line-strong;
+        border-width: 1px;
+        border-color: input.has-focus ? Theme.line-strong : Theme.line-strong.transparentize(100%);
+        animate background, border-color { duration: Theme.dur-2; easing: ease-out; }
     }
 
     HorizontalLayout {
@@ -84,16 +85,22 @@ component SearchBox {
     }
 }
 
-component Chip inherits TouchArea {
+component Chip inherits Pressable {
     in property <ChipData> chip;
     height: 24px;
     width: text.preferred-width + 24px;
+    depth: 0.94;
 
     Rectangle {
+        x: root.press-x;
+        y: root.press-y;
+        width: root.width - 2 * root.press-x;
+        height: root.height - 2 * root.press-y;
         border-radius: self.height / 2;
-        background: root.chip.on ? Theme.ink : root.has-hover ? Theme.field : transparent;
-        border-width: root.chip.on ? 0px : 1px;
-        border-color: root.chip.more ? Theme.line-soft : Theme.line;
+        background: root.chip.on ? Theme.ink : root.has-hover ? Theme.field : Theme.field.transparentize(100%);
+        border-width: 1px;
+        border-color: root.chip.on ? Theme.ink : root.chip.more ? Theme.line-soft : Theme.line;
+        animate background, border-color { duration: Theme.dur-2; easing: ease-out; }
     }
 
     text := Text {
@@ -103,6 +110,7 @@ component Chip inherits TouchArea {
         font-size: 11px;
         letter-spacing: 0.22px;
         color: root.chip.on ? Theme.ink-inverse : root.chip.more ? (root.has-hover ? Theme.ink-60 : Theme.ink-25) : (root.has-hover ? Theme.ink-80 : Theme.ink-40);
+        animate color { duration: Theme.dur-2; easing: ease-out; }
     }
 }
 
@@ -110,6 +118,9 @@ component GroupHeading {
     in property <GroupData> group;
     callback toggle();
     height: 15px;
+
+    private property <angle> turn: root.group.collapsed ? 0deg : 90deg;
+    animate turn { duration: Theme.dur-2; easing: cubic-bezier(0.22, 1, 0.36, 1); }
 
     HorizontalLayout {
         alignment: start;
@@ -122,7 +133,9 @@ component GroupHeading {
                 height: 12px;
 
                 Icon {
-                    commands: root.group.collapsed ? Icons.chevron : Icons.chevron-down;
+                    commands: "M " + (12 - 3.5 * Math.cos(root.turn) + 6.5 * Math.sin(root.turn)) + " " + (12 - 3.5 * Math.sin(root.turn) - 6.5 * Math.cos(root.turn))
+                        + " L " + (12 + 3 * Math.cos(root.turn)) + " " + (12 + 3 * Math.sin(root.turn))
+                        + " L " + (12 - 3.5 * Math.cos(root.turn) - 6.5 * Math.sin(root.turn)) + " " + (12 - 3.5 * Math.sin(root.turn) + 6.5 * Math.cos(root.turn));
                     size: 12px;
                     weight: 2;
                     tint: arrow.has-hover ? Theme.ink-60 : Theme.ink-25;
@@ -160,6 +173,7 @@ component TileGrid {
     in property <length> tile-gap;
     in property <length> tile-radius;
     in property <length> tile-label;
+    in property <bool> ready;
     callback toggle(int);
 
     private property <int> rows: Math.ceil(root.tiles.length / root.cols);
@@ -169,6 +183,8 @@ component TileGrid {
         x: Math.mod(i, root.cols) * (root.tile-size + root.tile-gap);
         y: Math.floor(i / root.cols) * (root.tile-size + root.tile-gap);
         data: tile;
+        order: i;
+        ready: root.ready;
         size: root.tile-size;
         radius: root.tile-radius;
         label-size: root.tile-label;
@@ -187,6 +203,7 @@ export component SoundGrid inherits Rectangle {
     in property <length> tile-radius: 16px;
     in property <length> tile-label: 22px;
     in-out property <string> search;
+    in property <bool> ready: true;
     callback toggle(int);
     callback chip-clicked(ChipData);
     callback toggle-group(string);
@@ -270,6 +287,7 @@ export component SoundGrid inherits Rectangle {
                             tile-gap: root.tile-gap;
                             tile-radius: root.tile-radius;
                             tile-label: root.tile-label;
+                            ready: root.ready;
                             toggle(i) => {
                                 root.toggle(i);
                             }

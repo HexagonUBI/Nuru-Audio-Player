@@ -26,7 +26,26 @@ export component Switch inherits TouchArea {
     }
 }
 
-export component SolidButton inherits TouchArea {
+export component Pressable inherits TouchArea {
+    in property <float> depth: 0.97;
+    out property <length> press-x: root.width * (1 - root.squeeze) / 2;
+    out property <length> press-y: root.height * (1 - root.squeeze) / 2;
+    private property <float> squeeze: 1;
+
+    states [
+        down when root.pressed && root.enabled: {
+            squeeze: root.depth;
+            in {
+                animate squeeze { duration: Theme.dur-1; easing: ease-out; }
+            }
+            out {
+                animate squeeze { duration: Theme.dur-3; easing: spring(0.45); }
+            }
+        }
+    ]
+}
+
+export component SolidButton inherits Pressable {
     in property <string> label;
     in property <bool> danger: false;
     in property <bool> wide: false;
@@ -39,9 +58,14 @@ export component SolidButton inherits TouchArea {
     private property <bool> hot: root.enabled && root.has-hover;
 
     Rectangle {
+        x: root.press-x;
+        y: root.press-y;
+        width: root.width - 2 * root.press-x;
+        height: root.height - 2 * root.press-y;
         border-radius: 7px;
         background: root.danger ? (root.hot ? Theme.danger.with-alpha(0.26) : Theme.danger-dim) : (root.hot ? #ffffff : Theme.ink);
         opacity: root.enabled ? 1 : 0.3;
+        animate background { duration: Theme.dur-2; easing: ease-out; }
     }
 
     text := Text {
@@ -55,7 +79,7 @@ export component SolidButton inherits TouchArea {
     }
 }
 
-export component QuietButton inherits TouchArea {
+export component QuietButton inherits Pressable {
     in property <string> label;
     in property <string> icon;
     in property <bool> wide: false;
@@ -69,11 +93,16 @@ export component QuietButton inherits TouchArea {
     private property <bool> hot: root.enabled && root.has-hover;
 
     Rectangle {
+        x: root.press-x;
+        y: root.press-y;
+        width: root.width - 2 * root.press-x;
+        height: root.height - 2 * root.press-y;
         border-radius: 7px;
         background: root.hot ? (root.danger-hover ? Theme.danger-dim : #ffffff17) : (root.outlined ? #ffffff0a : #ffffff0d);
         border-width: root.outlined ? 1px : 0px;
         border-color: root.hot ? Theme.line-strong : Theme.line-soft;
         opacity: root.enabled ? 1 : 0.4;
+        animate background, border-color { duration: Theme.dur-2; easing: ease-out; }
     }
 
     row := HorizontalLayout {
@@ -96,6 +125,7 @@ export component QuietButton inherits TouchArea {
             font-weight: 600;
             color: root.hot ? (root.danger-hover ? Theme.danger : Theme.ink) : Theme.ink-60;
             vertical-alignment: center;
+            animate color { duration: Theme.dur-2; easing: ease-out; }
         }
     }
 }
@@ -112,9 +142,10 @@ export component Field {
     Rectangle {
         border-radius: 7px;
         background: input.has-focus ? #ffffff14 : Theme.field;
-        border-width: input.has-focus ? 1px : 0px;
-        border-color: Theme.line-strong;
+        border-width: 1px;
+        border-color: input.has-focus ? Theme.line-strong : Theme.line-strong.transparentize(100%);
         opacity: root.enabled ? 1 : 0.5;
+        animate background, border-color { duration: Theme.dur-2; easing: ease-out; }
     }
 
     if root.text == "": Text {

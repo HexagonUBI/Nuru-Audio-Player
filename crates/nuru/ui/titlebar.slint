@@ -67,6 +67,7 @@ component UpdatePill inherits TouchArea {
     Rectangle {
         border-radius: self.height / 2;
         background: root.has-hover ? Theme.nuru-bright : Theme.nuru;
+        animate background { duration: Theme.dur-2; easing: ease-out; }
     }
 
     label := Text {
@@ -88,6 +89,7 @@ component TimerChip inherits TouchArea {
     Rectangle {
         border-radius: self.height / 2;
         background: root.has-hover ? Theme.nuru-bright : Theme.nuru;
+        animate background { duration: Theme.dur-2; easing: ease-out; }
     }
 
     row := HorizontalLayout {
@@ -121,7 +123,8 @@ component WindowButton {
     height: Theme.titlebar-h;
 
     Rectangle {
-        background: touch.pressed ? (root.danger ? #f1707a : #ffffff0a) : touch.has-hover ? (root.danger ? #e81123 : #ffffff14) : transparent;
+        background: touch.pressed ? (root.danger ? #f1707a : #ffffff0a) : touch.has-hover ? (root.danger ? #e81123 : #ffffff14) : (root.danger ? #e8112300 : #ffffff00);
+        animate background { duration: Theme.dur-1; easing: ease-out; }
     }
 
     Icon {

@@ -6,11 +6,17 @@ export component Drawer {
     in property <string> title;
     in property <length> panel-width: 420px;
     in property <bool> gutter: false;
+    in property <bool> closing;
     callback close();
 
-    private property <bool> shown: false;
+    private property <bool> born;
+    private property <bool> shown: root.born && !root.closing;
+
     init => {
-        self.shown = true;
+        scrim.opacity;
+        panel.x;
+        panel.opacity;
+        root.born = true;
     }
 
     TouchArea {
@@ -18,7 +24,7 @@ export component Drawer {
             root.close();
         }
 
-        Rectangle {
+        scrim := Rectangle {
             background: #06070880;
             opacity: root.shown ? 1 : 0;
             animate opacity { duration: Theme.dur-2; easing: ease-out; }
@@ -31,8 +37,8 @@ export component Drawer {
         width: root.panel-width;
         height: root.height - Theme.titlebar-h;
         opacity: root.shown ? 1 : 0;
-        animate x { duration: Theme.dur-4; easing: cubic-bezier(0.22, 1, 0.36, 1); }
-        animate opacity { duration: Theme.dur-3; easing: ease-out; }
+        animate x { duration: root.closing ? Theme.dur-3 : Theme.dur-4; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+        animate opacity { duration: root.closing ? Theme.dur-2 : Theme.dur-3; easing: ease-out; }
 
         Rectangle {
             x: -60px;
@@ -77,7 +83,8 @@ export component Drawer {
                         width: 28px;
                         height: 28px;
                         border-radius: 7px;
-                        background: closer.has-hover ? #ffffff14 : transparent;
+                        background: closer.has-hover ? #ffffff14 : #ffffff00;
+                        animate background { duration: Theme.dur-2; easing: ease-out; }
 
                         Icon {
                             x: (parent.width - self.width) / 2;

@@ -13,7 +13,8 @@ component Tab inherits TouchArea {
 
     Rectangle {
         border-radius: self.height / 2;
-        background: root.on ? Theme.s-500 : transparent;
+        background: root.on ? Theme.s-500 : Theme.s-500.transparentize(100%);
+        animate background { duration: Theme.dur-2; easing: ease-out; }
     }
 
     HorizontalLayout {
@@ -48,8 +49,10 @@ component Choice inherits TouchArea {
     Rectangle {
         border-radius: 11px;
         background: root.has-hover ? #ffffff17 : #ffffff0a;
+        animate background { duration: Theme.dur-2; easing: ease-out; }
         border-width: 1px;
         border-color: root.has-hover ? Theme.line-strong : Theme.line-soft;
+        animate border-color { duration: Theme.dur-2; easing: ease-out; }
     }
 
     VerticalLayout {
@@ -124,8 +127,10 @@ component Swatch inherits TouchArea {
     Rectangle {
         border-radius: self.height / 2;
         background: root.on ? #ffffff1f : (root.has-hover ? #ffffff17 : #ffffff0a);
+        animate background { duration: Theme.dur-2; easing: ease-out; }
         border-width: 1px;
         border-color: root.on ? root.preset.accent : Theme.line-soft;
+        animate border-color { duration: Theme.dur-2; easing: ease-out; }
     }
 
     row := HorizontalLayout {

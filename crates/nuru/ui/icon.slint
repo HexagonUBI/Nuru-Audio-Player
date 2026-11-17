@@ -13,4 +13,5 @@ export component Icon inherits Path {
     stroke: root.filled ? transparent : root.tint;
     stroke-width: root.weight * root.size / 24;
     stroke-line-cap: round;
+    animate fill, stroke { duration: Theme.dur-2; easing: ease-out; }
 }

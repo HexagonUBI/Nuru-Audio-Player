@@ -3,17 +3,20 @@ import { Icon } from "icon.slint";
 import { Fader } from "fader.slint";
 import { Effects, Shadow } from "effects.slint";
 import { LayerData } from "types.slint";
+import { Pressable } from "widgets.slint";
 
-component GhostButton {
+component GhostButton inherits Pressable {
     in property <string> icon;
     in property <string> label;
-    in property <bool> enabled: true;
-    callback clicked;
     height: 31px;
 
-    private property <bool> hot: root.enabled && touch.has-hover;
+    private property <bool> hot: root.enabled && root.has-hover;
 
     Rectangle {
+        x: root.press-x;
+        y: root.press-y;
+        width: root.width - 2 * root.press-x;
+        height: root.height - 2 * root.press-y;
         border-radius: 7px;
         background: root.hot ? #ffffff17 : #ffffff0a;
         animate background { duration: Theme.dur-2; easing: ease-out; }
@@ -41,13 +44,7 @@ component GhostButton {
             font-weight: 600;
             color: root.hot ? Theme.ink : Theme.ink-60;
             vertical-alignment: center;
-        }
-    }
-
-    touch := TouchArea {
-        enabled: root.enabled;
-        clicked => {
-            root.clicked();
+            animate color { duration: Theme.dur-2; easing: ease-out; }
         }
     }
 }
@@ -85,73 +82,92 @@ component LayerRow inherits TouchArea {
     in property <LayerData> layer;
     callback set-volume(float);
     callback remove();
+    height: (content.preferred-height + 16px) * root.open;
 
-    VerticalLayout {
-        spacing: 8px;
+    private property <bool> born;
+    private property <float> open: root.born && !root.layer.leaving ? 1 : 0;
+    animate open { duration: root.layer.leaving ? 200ms : 240ms; easing: root.layer.leaving ? cubic-bezier(0.65, 0, 0.35, 1) : cubic-bezier(0.22, 1, 0.36, 1); }
 
-        HorizontalLayout {
+    init => {
+        root.open;
+        root.born = true;
+    }
+
+    Rectangle {
+        clip: true;
+
+        content := VerticalLayout {
+            x: root.layer.leaving ? -18px * (1 - root.open) : 0px;
+            y: root.layer.leaving ? 0px : -10px * (1 - root.open);
+            width: parent.width;
+            height: self.preferred-height;
+            opacity: root.open;
             spacing: 8px;
-            height: 20px;
 
-            VerticalLayout {
-                alignment: center;
-                Rectangle {
-                    width: 7px;
-                    height: 7px;
-
-                    Shadow {
-                        source: Effects.dot-glow;
-                        pad: Effects.dot-glow-pad;
-                        spread: -1px;
-                        box-width: parent.width;
-                        box-height: parent.height;
-                        colorize: root.layer.accent;
-                    }
-
-                    Rectangle {
-                        border-radius: 3.5px;
-                        background: root.layer.accent;
-                    }
-                }
-            }
-
-            ValueRow {
-                horizontal-stretch: 1;
-                name: root.layer.name;
-                value: root.layer.volume;
-                strong: true;
-            }
-
-            remove := Rectangle {
-                width: 20px;
+            HorizontalLayout {
+                spacing: 8px;
                 height: 20px;
-                border-radius: 4px;
-                background: remove-touch.has-hover ? #ffffff14 : transparent;
-                opacity: root.has-hover ? 1 : 0;
-                animate opacity { duration: Theme.dur-2; easing: ease-out; }
 
-                Icon {
-                    x: (parent.width - self.width) / 2;
-                    y: (parent.height - self.height) / 2;
-                    commands: Icons.close;
-                    size: 13px;
-                    weight: 2;
-                    tint: remove-touch.has-hover ? Theme.ink : Theme.ink-25;
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 7px;
+                        height: 7px;
+
+                        Shadow {
+                            source: Effects.dot-glow;
+                            pad: Effects.dot-glow-pad;
+                            spread: -1px;
+                            box-width: parent.width;
+                            box-height: parent.height;
+                            colorize: root.layer.accent;
+                        }
+
+                        Rectangle {
+                            border-radius: 3.5px;
+                            background: root.layer.accent;
+                        }
+                    }
                 }
 
-                remove-touch := TouchArea {
-                    clicked => {
-                        root.remove();
+                ValueRow {
+                    horizontal-stretch: 1;
+                    name: root.layer.name;
+                    value: root.layer.volume;
+                    strong: true;
+                }
+
+                remove := Rectangle {
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 4px;
+                    background: remove-touch.has-hover ? #ffffff14 : transparent;
+                    opacity: root.has-hover ? 1 : 0;
+                    animate opacity { duration: Theme.dur-2; easing: ease-out; }
+
+                    Icon {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        commands: Icons.close;
+                        size: 13px;
+                        weight: 2;
+                        tint: remove-touch.has-hover ? Theme.ink : Theme.ink-25;
+                    }
+
+                    remove-touch := TouchArea {
+                        clicked => {
+                            root.remove();
+                        }
                     }
                 }
             }
-        }
 
-        Fader {
-            value: root.layer.volume;
-            accent: root.layer.accent;
-            changed(v) => {
-                root.set-volume(v);
+            Fader {
+                value: root.layer.volume;
+                accent: root.layer.accent;
+                changed(v) => {
+                    root.set-volume(v);
+                }
             }
         }
     }
@@ -159,6 +175,7 @@ component LayerRow inherits TouchArea {
 
 export component Mixer inherits Rectangle {
     in property <[LayerData]> layers;
+    in property <int> count;
     in property <float> master;
     in property <bool> playing;
     callback set-master(float);
@@ -171,8 +188,24 @@ export component Mixer inherits Rectangle {
     width: Theme.mixer-w;
     background: @linear-gradient(180deg, Theme.s-700 0%, Theme.s-800 42%);
 
-    private property <bool> can-play: root.layers.length > 0;
+    private property <bool> can-play: root.count > 0;
     private property <bool> live: root.playing && root.can-play;
+    private property <float> squeeze: 1;
+    private property <float> pause-size: root.live ? 1 : 0.5;
+    private property <float> play-size: root.live ? 0.5 : 1;
+    animate pause-size, play-size { duration: Theme.dur-4; easing: spring(0.5); }
+
+    states [
+        down when transport.pressed && root.can-play: {
+            squeeze: 0.94;
+            in {
+                animate squeeze { duration: Theme.dur-1; easing: ease-out; }
+            }
+            out {
+                animate squeeze { duration: Theme.dur-3; easing: spring(0.45); }
+            }
+        }
+    ]
 
     Rectangle {
         x: parent.width - 1px;
@@ -206,7 +239,8 @@ export component Mixer inherits Rectangle {
                     width: 28px;
                     height: 28px;
                     border-radius: 7px;
-                    background: trash.has-hover ? Theme.danger-dim : transparent;
+                    background: trash.has-hover ? Theme.danger-dim : Theme.danger-dim.transparentize(100%);
+                    animate background { duration: Theme.dur-2; easing: ease-out; }
 
                     Icon {
                         x: (parent.width - self.width) / 2;
@@ -259,8 +293,7 @@ export component Mixer inherits Rectangle {
                 padding-left: 20px;
                 padding-right: 20px;
                 padding-top: 16px;
-                padding-bottom: 16px;
-                spacing: 16px;
+                padding-bottom: root.layers.length > 0 ? 0px : 16px;
                 alignment: start;
 
                 for layer in root.layers: LayerRow {
@@ -273,11 +306,27 @@ export component Mixer inherits Rectangle {
                     }
                 }
 
-                if !root.can-play: Text {
-                    text: "Pick a sound to start. Layer as many as you like - they all loop and mix together.";
-                    font-size: 13px;
-                    color: Theme.ink-40;
-                    wrap: word-wrap;
+                if root.layers.length == 0: Rectangle {
+                    height: hint.preferred-height;
+
+                    property <bool> born;
+                    property <float> rise: self.born ? 1 : 0;
+                    animate rise { duration: 260ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+
+                    init => {
+                        self.rise;
+                        self.born = true;
+                    }
+
+                    hint := Text {
+                        y: (1 - parent.rise) * 8px;
+                        width: parent.width;
+                        opacity: parent.rise;
+                        text: "Pick a sound to start. Layer as many as you like - they all loop and mix together.";
+                        font-size: 13px;
+                        color: Theme.ink-40;
+                        wrap: word-wrap;
+                    }
                 }
             }
         }
@@ -306,11 +355,12 @@ export component Mixer inherits Rectangle {
                     animate background { duration: Theme.dur-2; easing: ease-out; }
 
                     Rectangle {
-                        x: 4px;
-                        y: 4px;
-                        width: 52px;
-                        height: 52px;
+                        x: 4px + 26px * (1 - root.squeeze);
+                        y: 4px + 26px * (1 - root.squeeze);
+                        width: 52px * root.squeeze;
+                        height: 52px * root.squeeze;
                         opacity: root.can-play ? 1 : 0.32;
+                        animate opacity { duration: Theme.dur-2; easing: ease-out; }
 
                         Shadow {
                             source: Effects.round-rest;
@@ -331,18 +381,32 @@ export component Mixer inherits Rectangle {
                         }
 
                         Rectangle {
-                            border-radius: 26px;
+                            border-radius: self.height / 2;
                             background: transport.has-hover && root.can-play ? #ffffff : Theme.ink;
+                            animate background { duration: Theme.dur-2; easing: ease-out; }
                         }
 
                         Icon {
-                            x: (parent.width - self.width) / 2 + (root.live ? 0 : 1px);
+                            x: (parent.width - self.width) / 2;
                             y: (parent.height - self.height) / 2;
-                            commands: root.live ? Icons.pause : Icons.play;
-                            size: 20px;
+                            commands: Icons.pause;
+                            size: 20px * root.pause-size * root.squeeze;
                             weight: 2.2;
-                            filled: !root.live;
                             tint: Theme.ink-inverse;
+                            opacity: root.live ? 1 : 0;
+                            animate opacity { duration: Theme.dur-2; easing: ease-out; }
+                        }
+
+                        Icon {
+                            x: (parent.width - self.width) / 2 + 1px;
+                            y: (parent.height - self.height) / 2;
+                            commands: Icons.play;
+                            size: 20px * root.play-size * root.squeeze;
+                            weight: 2.2;
+                            filled: true;
+                            tint: Theme.ink-inverse;
+                            opacity: root.live ? 0 : 1;
+                            animate opacity { duration: Theme.dur-2; easing: ease-out; }
                         }
 
                         transport := TouchArea {

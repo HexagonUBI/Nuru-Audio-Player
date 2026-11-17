@@ -179,41 +179,49 @@ component Toast {
     height: 40px;
     width: Math.min(460px, row.preferred-width + 32px);
 
-    private property <bool> shown: false;
+    private property <bool> born;
+    private property <float> shown: root.born && !root.toast.leaving ? 1 : 0;
+    animate shown { duration: root.toast.leaving ? 160ms : 280ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+
     init => {
-        self.shown = true;
-    }
-    opacity: self.shown ? 1 : 0;
-    animate opacity { duration: Theme.dur-3; easing: ease-out; }
-
-    Rectangle {
-        border-radius: self.height / 2;
-        background: root.toast.error ? #3a1a1af0 : #1c1e24f0;
-        border-width: 1px;
-        border-color: root.toast.error ? Theme.danger.with-alpha(0.3) : Theme.line;
+        root.shown;
+        root.born = true;
     }
 
-    row := HorizontalLayout {
-        x: 16px;
-        spacing: 8px;
+    card := Rectangle {
+        y: (root.toast.leaving ? 10px : 16px) * (1 - root.shown);
+        height: root.height;
+        opacity: root.shown;
 
-        VerticalLayout {
-            alignment: center;
-            Icon {
-                commands: root.toast.error ? Icons.warn : Icons.check;
-                size: 15px;
-                weight: root.toast.error ? 1.7 : 2.2;
-                tint: root.toast.error ? #ffd9d6 : Theme.ink;
-            }
+        Rectangle {
+            border-radius: self.height / 2;
+            background: root.toast.error ? #3a1a1af0 : #1c1e24f0;
+            border-width: 1px;
+            border-color: root.toast.error ? Theme.danger.with-alpha(0.3) : Theme.line;
         }
 
-        Text {
-            text: root.toast.text;
-            font-size: 13px;
-            color: root.toast.error ? #ffd9d6 : Theme.ink;
-            vertical-alignment: center;
-            overflow: elide;
-            max-width: 400px;
+        row := HorizontalLayout {
+            x: 16px;
+            spacing: 8px;
+
+            VerticalLayout {
+                alignment: center;
+                Icon {
+                    commands: root.toast.error ? Icons.warn : Icons.check;
+                    size: 15px;
+                    weight: root.toast.error ? 1.7 : 2.2;
+                    tint: root.toast.error ? #ffd9d6 : Theme.ink;
+                }
+            }
+
+            Text {
+                text: root.toast.text;
+                font-size: 13px;
+                color: root.toast.error ? #ffd9d6 : Theme.ink;
+                vertical-alignment: center;
+                overflow: elide;
+                max-width: 400px;
+            }
         }
     }
 }

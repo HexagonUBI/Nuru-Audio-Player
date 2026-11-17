@@ -16,7 +16,8 @@ export component Fader {
     }
     private property <float> shown: Math.clamp(root.value, 0, 1);
     private property <length> rail-h: root.engaged ? 8px : 6px;
-    private property <length> knob: root.engaged ? 13px : 10.66px;
+    private property <length> knob: touch.pressed ? 15.3px : root.engaged ? 13px : 10.66px;
+    animate knob { duration: Theme.dur-3; easing: spring(0.4); }
 
     Rectangle {
         width: parent.width;
@@ -83,7 +84,6 @@ export component Fader {
             height: root.knob;
             border-radius: root.knob / 2;
             background: #ffffff;
-            animate width, height, x, y { duration: Theme.dur-3; easing: ease-out; }
         }
     }
 
