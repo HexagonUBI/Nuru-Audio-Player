@@ -1,0 +1,20 @@
+{
+  "entries": [
+    {
+      "title": "Lighter on your PC",
+      "text": "Nuru is a native app now. With a few sounds playing it uses about 14 MB of memory and under 2% of one CPU core."
+    },
+    {
+      "title": "Keeps playing in the tray",
+      "text": "Closing the window leaves Nuru running in the tray. Opening Nuru again brings the window back."
+    },
+    {
+      "title": "Update progress",
+      "text": "Updates show a progress screen, and a failed update says what went wrong."
+    },
+    {
+      "title": "New icon",
+      "text": "The app icon uses the new Nuru logo."
+    }
+  ]
+}
